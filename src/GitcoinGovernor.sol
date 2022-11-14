@@ -97,9 +97,8 @@ contract GitcoinGovernor is
     bytes[] memory calldatas,
     bytes32 descriptionHash
   ) internal virtual override (Governor, GovernorTimelockCompound) {
-    return GovernorTimelockCompound._execute(
-      proposalId, targets, values, calldatas, descriptionHash
-    );
+    return
+      GovernorTimelockCompound._execute(proposalId, targets, values, calldatas, descriptionHash);
   }
 
   /// @dev We override this function to resolve ambiguity between inherited contracts.
