@@ -63,7 +63,15 @@ jobs:
           override: true
 
       - name: Install scopelint
-        run: cargo install scopelint
+        uses: engineerd/configurator@v0.0.8
+        with:
+          name: scopelint
+          repo: ScopeLift/scopelint
+          fromGitHubReleases: true
+          version: latest
+          pathInArchive: scopelint-x86_64-linux/scopelint
+          urlTemplate: https://github.com/ScopeLift/scopelint/releases/download/{{version}}/scopelint-x86_64-linux.tar.xz
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check formatting
         run: scopelint check
@@ -79,10 +87,9 @@ jobs:
         with:
           fail-on: none # Required to avoid failing the CI run regardless of findings.
           sarif: results.sarif
-          slither-args: --filter-paths "./lib|./test" --exclude naming-convention,solc-version
+          slither-args: --filter-paths "./lib|./test" --exclude naming-convention
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v2
-        if: always() # Run even if previous step fails
         with:
           sarif_file: ${{ steps.slither.outputs.sarif }}
