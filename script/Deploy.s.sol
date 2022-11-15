@@ -12,9 +12,12 @@ contract DeployScript is DeployInput, Script {
     deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
   }
 
-  function run() public {
+  function run() public returns (GitcoinGovernor) {
     vm.startBroadcast(deployerPrivateKey);
-    new GitcoinGovernor(INITIAL_VOTING_DELAY, INITIAL_VOTING_PERIOD, INITIAL_PROPOSAL_THRESHOLD);
+    GitcoinGovernor _governor =
+      new GitcoinGovernor(INITIAL_VOTING_DELAY, INITIAL_VOTING_PERIOD, INITIAL_PROPOSAL_THRESHOLD);
     vm.stopBroadcast();
+
+    return _governor;
   }
 }
