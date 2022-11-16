@@ -2,8 +2,13 @@
 pragma solidity ^0.8.17;
 
 import {Script} from "forge-std/Script.sol";
-import {DeployInput} from "script/Deploy.Input.sol";
 import {GitcoinGovernor} from "src/GitcoinGovernor.sol";
+
+contract DeployInput {
+  uint256 constant INITIAL_VOTING_DELAY = 13_140;
+  uint256 constant INITIAL_VOTING_PERIOD = 40_320;
+  uint256 constant INITIAL_PROPOSAL_THRESHOLD = 1_000_000e18;
+}
 
 contract DeployScript is DeployInput, Script {
   uint256 deployerPrivateKey;
