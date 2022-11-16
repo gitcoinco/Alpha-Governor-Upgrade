@@ -3,13 +3,12 @@ pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 import {GitcoinGovernor} from "src/GitcoinGovernor.sol";
-import {DeployInput} from "script/Deploy.Input.sol";
-import {DeployScript} from "script/Deploy.s.sol";
+import {DeployInput, DeployScript} from "script/Deploy.s.sol";
 
 contract GitcoinGovernorTest is Test, DeployInput {
-  uint256 QUORUM = 2_500_000e18;
-  address GTC_TOKEN = 0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F;
-  address TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
+  uint256 constant QUORUM = 2_500_000e18;
+  address constant GTC_TOKEN = 0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F;
+  address constant TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
 
   GitcoinGovernor governor;
 
