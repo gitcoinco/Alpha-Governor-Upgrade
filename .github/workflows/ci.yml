@@ -28,6 +28,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v3
 
