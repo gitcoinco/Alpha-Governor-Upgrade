@@ -1,0 +1,5 @@
+{
+    "initialVotingDelay": "13140",
+    "initialVotingPeriod": "40320",
+    "initialProposalThreshold": "1000000000000000000000000"
+}

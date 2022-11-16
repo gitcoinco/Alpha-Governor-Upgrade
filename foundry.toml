@@ -3,6 +3,7 @@
   optimizer_runs = 10_000_000
   solc_version = "0.8.17"
   verbosity = 3
+  fs_permissions = [{ access = "read", path = "./"}]
 
 [profile.ci]
   fuzz = { runs = 5000 }
