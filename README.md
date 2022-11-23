@@ -11,8 +11,21 @@ This project uses [Foundry](https://github.com/foundry-rs/foundry). Follow [thes
 
 #### Getting started
 
+Clone the repo
+
 ```bash
 git clone git@github.com:gitcoinco/2022-Governor-upgrade.git
+cd 2022-Governor-upgrade
+```
+
+Copy the `.env.template` file and populate it with values
+
+```bash
+cp .env.template .env
+# Open the .env file and add your values
+```
+
+```bash
 forge install
 forge build
 forge test
