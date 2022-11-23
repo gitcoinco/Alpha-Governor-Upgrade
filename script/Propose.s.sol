@@ -7,8 +7,8 @@ import {IGovernorAlpha} from "src/IGovernorAlpha.sol";
 import {ICompoundTimelock} from "openzeppelin-contracts/governance/extensions/GovernorTimelockCompound.sol";
 
 contract ProposeScript is Script {
-    IGovernorAlpha governorAlpha = IGovernorAlpha(0xDbD27635A534A3d3169Ef0498beB56Fb9c937489);
-    address proposer = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
+  IGovernorAlpha constant governorAlpha = IGovernorAlpha(0xDbD27635A534A3d3169Ef0498beB56Fb9c937489);
+  address constant proposer = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
 
   function propose(GitcoinGovernor _newGovernor) internal returns (uint256 _proposalId) {
     address[] memory _targets = new address[](1);
@@ -32,6 +32,11 @@ contract ProposeScript is Script {
 
   /// @dev After the new Governor is deployed on mainnet, this can move from a parameter to a const
   function run(GitcoinGovernor _newGovernor) public returns (uint256 _proposalId) {
+    // The expectation is the key loaded here corresponds to the address of the `proposer` above.
+    // When running as a script, broadcast will fail if the key is not correct.
+    uint256 _proposerKey = vm.envUint("PROPOSER_PRIVATE_KEY");
+    vm.rememberKey(_proposerKey);
+
     vm.startBroadcast(proposer);
     _proposalId = propose(_newGovernor);
     vm.stopBroadcast();
