@@ -31,6 +31,7 @@ jobs:
     env:
       DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
       MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+      PROPOSER_PRIVATE_KEY: ${{ secrets.PROPOSER_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v3
 
