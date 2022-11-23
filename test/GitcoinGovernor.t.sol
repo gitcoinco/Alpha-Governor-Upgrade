@@ -134,14 +134,18 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
       string[] memory _signatures,
       bytes[] memory _calldatas
     ) = governorAlpha.getActions(proposalId);
-    assertEq(_targets.length, 1);
+    assertEq(_targets.length, 2);
     assertEq(_targets[0], TIMELOCK);
-    assertEq(_values.length, 1);
+    assertEq(_targets[1], address(governor));
+    assertEq(_values.length, 2);
     assertEq(_values[0], 0);
-    assertEq(_signatures.length, 1);
+    assertEq(_values[1], 0);
+    assertEq(_signatures.length, 2);
     assertEq(_signatures[0], "setPendingAdmin(address)");
-    assertEq(_calldatas.length, 1);
+    assertEq(_signatures[1], "__acceptAdmin()");
+    assertEq(_calldatas.length, 2);
     assertEq(_calldatas[0], abi.encode(address(governor)));
+    assertEq(_calldatas[1], "");
   }
 
   function test_proposalActiveAfterDelay() public {
@@ -241,7 +245,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
     uint8 _state = governorAlpha.state(proposalId);
     assertEq(_state, EXECUTED);
 
-    // Ensure the governor is now the pending admin
-    assertEq(timelock.pendingAdmin(), address(governor));
+    // Ensure the governor is now the admin of the timelock
+    assertEq(timelock.admin(), address(governor));
   }
 }

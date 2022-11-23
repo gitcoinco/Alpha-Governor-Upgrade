@@ -11,15 +11,20 @@ contract ProposeScript is Script {
   address constant proposer = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
 
   function propose(GitcoinGovernor _newGovernor) internal returns (uint256 _proposalId) {
-    address[] memory _targets = new address[](1);
-    uint256[] memory _values = new uint256[](1);
-    string[] memory _signatures = new string [](1);
-    bytes[] memory _calldatas = new bytes[](1);
+    address[] memory _targets = new address[](2);
+    uint256[] memory _values = new uint256[](2);
+    string[] memory _signatures = new string [](2);
+    bytes[] memory _calldatas = new bytes[](2);
 
     _targets[0] = governorAlpha.timelock();
     _values[0] = 0;
     _signatures[0] = "setPendingAdmin(address)";
     _calldatas[0] = abi.encode(address(_newGovernor));
+
+    _targets[1] = address(_newGovernor);
+    _values[1] = 0;
+    _signatures[1] = "__acceptAdmin()";
+    _calldatas[1] = "";
 
     return governorAlpha.propose(
         _targets,
