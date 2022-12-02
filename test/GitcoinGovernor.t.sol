@@ -210,7 +210,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
 
     uint256 _eta = block.timestamp + timelock.delay();
 
-    for (uint _index = 0; _index < _targets.length; _index++) {
+    for (uint256 _index = 0; _index < _targets.length; _index++) {
       // Calculate hash of transaction in Timelock
       bytes32 _txHash = keccak256(
         abi.encode(_targets[_index],
