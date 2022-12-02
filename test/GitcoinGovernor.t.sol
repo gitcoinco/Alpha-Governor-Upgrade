@@ -4,8 +4,8 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import {GitcoinGovernor, ICompoundTimelock} from "src/GitcoinGovernor.sol";
 import {DeployInput, DeployScript} from "script/Deploy.s.sol";
-import {IGovernorAlpha} from "src/IGovernorAlpha.sol";
-import {IGTC} from "src/IGTC.sol";
+import {IGovernorAlpha} from "src/interfaces/IGovernorAlpha.sol";
+import {IGTC} from "src/interfaces/IGTC.sol";
 import {ProposeScript} from "script/Propose.s.sol";
 
 contract GitcoinGovernorTest is Test, DeployInput {

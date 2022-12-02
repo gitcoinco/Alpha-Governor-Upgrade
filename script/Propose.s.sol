@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {Script} from "forge-std/Script.sol";
 import {GitcoinGovernor} from "src/GitcoinGovernor.sol";
-import {IGovernorAlpha} from "src/IGovernorAlpha.sol";
+import {IGovernorAlpha} from "src/interfaces/IGovernorAlpha.sol";
 import {ICompoundTimelock} from "openzeppelin-contracts/governance/extensions/GovernorTimelockCompound.sol";
 
 contract ProposeScript is Script {
