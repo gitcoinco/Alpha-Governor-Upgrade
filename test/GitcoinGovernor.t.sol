@@ -170,15 +170,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
   }
 
   function test_ProposalSucceedsWhenAllDelegatesVoteFor() public {
-    jumpToActiveProposal();
-
-    // All delegates vote in support
-    for (uint _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
-      governorAlpha.castVote(proposalId, true);
-    }
-
-    jumpToVoteComplete();
+    passProposal();
 
     // Ensure proposal state is now succeeded
     uint8 _state = governorAlpha.state(proposalId);
