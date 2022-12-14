@@ -17,7 +17,7 @@ contract GitcoinGovernorTest is Test, DeployInput {
   GitcoinGovernor governor;
 
   function setUp() public virtual {
-    uint256 _forkBlock = 15980096; // The latest block when this test was written
+    uint256 _forkBlock = 15_980_096; // The latest block when this test was written
     vm.createSelectFork(vm.rpcUrl("mainnet"), _forkBlock);
 
     DeployScript _deployScript = new DeployScript();
@@ -38,7 +38,6 @@ contract GitcoinGovernorTest is Test, DeployInput {
 }
 
 contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
-
   IGovernorAlpha governorAlpha = IGovernorAlpha(0xDbD27635A534A3d3169Ef0498beB56Fb9c937489);
   IGTC gtcToken = IGTC(GTC_TOKEN);
   ICompoundTimelock timelock = ICompoundTimelock(payable(TIMELOCK));
@@ -73,17 +72,17 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
   //--------------- HELPERS ---------------//
 
   function proposalStartBlock() public view returns (uint256) {
-    (,,,uint256 _startBlock,,,,,) = governorAlpha.proposals(proposalId);
+    (,,, uint256 _startBlock,,,,,) = governorAlpha.proposals(proposalId);
     return _startBlock;
   }
 
   function proposalEndBlock() public view returns (uint256) {
-    (,,,,uint256 _endBlock,,,,) = governorAlpha.proposals(proposalId);
+    (,,,, uint256 _endBlock,,,,) = governorAlpha.proposals(proposalId);
     return _endBlock;
   }
 
   function proposalEta() public view returns (uint256) {
-    (,,uint256 _eta,,,,,,) = governorAlpha.proposals(proposalId);
+    (,, uint256 _eta,,,,,,) = governorAlpha.proposals(proposalId);
     return _eta;
   }
 
@@ -104,7 +103,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
     jumpToActiveProposal();
 
     // All delegates vote in support
-    for (uint _index = 0; _index < delegates.length; _index++) {
+    for (uint256 _index = 0; _index < delegates.length; _index++) {
       vm.prank(delegates[_index]);
       governorAlpha.castVote(proposalId, true);
     }
@@ -181,7 +180,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
     jumpToActiveProposal();
 
     // All delegates vote against
-    for (uint _index = 0; _index < delegates.length; _index++) {
+    for (uint256 _index = 0; _index < delegates.length; _index++) {
       vm.prank(delegates[_index]);
       governorAlpha.castVote(proposalId, false);
     }
@@ -213,11 +212,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
     for (uint256 _index = 0; _index < _targets.length; _index++) {
       // Calculate hash of transaction in Timelock
       bytes32 _txHash = keccak256(
-        abi.encode(_targets[_index],
-        _values[_index],
-        _signatures[_index],
-        _calldatas[_index],
-        _eta)
+        abi.encode(_targets[_index], _values[_index], _signatures[_index], _calldatas[_index], _eta)
       );
 
       // Ensure transaction is queued in Timelock
