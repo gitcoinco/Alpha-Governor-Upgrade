@@ -99,15 +99,22 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
     vm.warp(proposalEta() + 1); // jump past the eta timestamp
   }
 
-  function passProposal() public {
-    jumpToActiveProposal();
-
-    // All delegates vote in support
+  function delegatesVoteOnProposal(bool _support) public {
     for (uint256 _index = 0; _index < delegates.length; _index++) {
       vm.prank(delegates[_index]);
-      governorAlpha.castVote(proposalId, true);
+      governorAlpha.castVote(proposalId, _support);
     }
+  }
 
+  function passProposal() public {
+    jumpToActiveProposal();
+    delegatesVoteOnProposal(true);
+    jumpToVoteComplete();
+  }
+
+  function defeatProposal() public {
+    jumpToActiveProposal();
+    delegatesVoteOnProposal(false);
     jumpToVoteComplete();
   }
 
@@ -177,15 +184,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
   }
 
   function test_ProposalDefeatedWhenAllDelegatesVoteAgainst() public {
-    jumpToActiveProposal();
-
-    // All delegates vote against
-    for (uint256 _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
-      governorAlpha.castVote(proposalId, false);
-    }
-
-    jumpToVoteComplete();
+    defeatProposal();
 
     // Ensure proposal state is now defeated
     uint8 _state = governorAlpha.state(proposalId);
@@ -234,5 +233,64 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
 
     // Ensure the governor is now the admin of the timelock
     assertEq(timelock.admin(), address(governor));
+  }
+}
+
+contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTest {
+  function setUp() public virtual override {
+    super.setUp();
+  }
+
+  function testFuzz_OldGovernorWorksAfterProposalIsDefeated(
+    uint256 _gtcAmount,
+    address _gtcReceiver
+  ) public {
+    vm.assume(_gtcReceiver != TIMELOCK);
+    uint256 _timelockGtcBalance = gtcToken.balanceOf(TIMELOCK);
+    // bound by the number of tokens the timelock currently controls
+    _gtcAmount = bound(_gtcAmount, 0, _timelockGtcBalance);
+    uint256 _initialGtcBalance = gtcToken.balanceOf(_gtcReceiver);
+
+    // Defeat the proposal to upgrade the Governor
+    defeatProposal();
+
+    // Craft a new proposal to send GTC
+    address[] memory _targets = new address[](1);
+    uint256[] memory _values = new uint256[](1);
+    string[] memory _signatures = new string [](1);
+    bytes[] memory _calldatas = new bytes[](1);
+
+    _targets[0] = GTC_TOKEN;
+    _values[0] = 0;
+    _signatures[0] = "transfer(address,uint256)";
+    _calldatas[0] = abi.encode(_gtcReceiver, _gtcAmount);
+
+    // Submit the new proposal
+    vm.prank(PROPOSER);
+    uint256 _newProposalId = governorAlpha.propose(
+      _targets, _values, _signatures, _calldatas, "Transfer some GTC from the old Governor"
+    );
+
+    // Pass and execute the new proposal
+    (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
+    vm.roll(_startBlock + 1);
+    for (uint256 _index = 0; _index < delegates.length; _index++) {
+      vm.prank(delegates[_index]);
+      governorAlpha.castVote(_newProposalId, true);
+    }
+    vm.roll(_endBlock + 1);
+    governorAlpha.queue(_newProposalId);
+    vm.roll(block.number + 1);
+    (,, uint256 _eta,,,,,,) = governorAlpha.proposals(_newProposalId);
+    vm.warp(_eta + 1);
+    governorAlpha.execute(_newProposalId);
+
+    // Ensure the new proposal is now executed
+    uint8 _state = governorAlpha.state(_newProposalId);
+    assertEq(_state, EXECUTED);
+
+    // Ensure the tokens have been transferred from the timelock to the receiver
+    assertEq(gtcToken.balanceOf(TIMELOCK), _timelockGtcBalance - _gtcAmount);
+    assertEq(gtcToken.balanceOf(_gtcReceiver), _initialGtcBalance + _gtcAmount);
   }
 }
