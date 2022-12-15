@@ -8,7 +8,7 @@ import {IGovernorAlpha} from "src/interfaces/IGovernorAlpha.sol";
 import {IGTC} from "src/interfaces/IGTC.sol";
 import {ProposeScript} from "script/Propose.s.sol";
 
-contract GitcoinGovernorTest is Test, DeployInput {
+contract GitcoinGovernorTestHelper is Test, DeployInput {
   uint256 constant QUORUM = 2_500_000e18;
   address constant GTC_TOKEN = 0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F;
   address constant TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
@@ -24,7 +24,9 @@ contract GitcoinGovernorTest is Test, DeployInput {
     _deployScript.setUp();
     governor = _deployScript.run();
   }
+}
 
+contract GitcoinGovernorDeployTest is GitcoinGovernorTestHelper {
   function testFuzz_deployment(uint256 _blockNumber) public {
     assertEq(governor.name(), "GTC Governor Bravo");
     assertEq(address(governor.token()), GTC_TOKEN);
@@ -37,7 +39,9 @@ contract GitcoinGovernorTest is Test, DeployInput {
   }
 }
 
-contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
+contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
+  //----------------- State and Setup ----------- //
+
   IGovernorAlpha governorAlpha = IGovernorAlpha(0xDbD27635A534A3d3169Ef0498beB56Fb9c937489);
   IGTC gtcToken = IGTC(GTC_TOKEN);
   ICompoundTimelock timelock = ICompoundTimelock(payable(TIMELOCK));
@@ -122,9 +126,9 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
     passProposal();
     governorAlpha.queue(proposalId);
   }
+}
 
-  //--------------- TESTS ---------------//
-
+contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   function test_Proposal() public {
     // Proposal has been recorded
     assertEq(governorAlpha.proposalCount(), initialProposalCount + 1);
@@ -236,16 +240,12 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorTest {
   }
 }
 
-contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTest {
-  function setUp() public virtual override {
-    super.setUp();
-  }
-
+contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelper {
   function testFuzz_OldGovernorWorksAfterProposalIsDefeated(
     uint256 _gtcAmount,
     address _gtcReceiver
   ) public {
-    vm.assume(_gtcReceiver != TIMELOCK);
+    vm.assume(_gtcReceiver != TIMELOCK && _gtcReceiver != address(0x0));
     uint256 _timelockGtcBalance = gtcToken.balanceOf(TIMELOCK);
     // bound by the number of tokens the timelock currently controls
     _gtcAmount = bound(_gtcAmount, 0, _timelockGtcBalance);
