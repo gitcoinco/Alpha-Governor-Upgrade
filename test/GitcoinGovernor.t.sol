@@ -2,6 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
+import {IERC20} from "openzeppelin-contracts/interfaces/IERC20.sol";
 import {GitcoinGovernor, ICompoundTimelock} from "src/GitcoinGovernor.sol";
 import {DeployInput, DeployScript} from "script/Deploy.s.sol";
 import {IGovernorAlpha} from "src/interfaces/IGovernorAlpha.sol";
@@ -241,7 +242,19 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 }
 
 contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelper {
-  function testFuzz_OldGovernorWorksAfterProposalIsDefeated(
+  address constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+  address constant RAD_ADDRESS = 0x31c8EAcBFFdD875c74b94b077895Bd78CF1E64A3;
+
+  IERC20 usdcToken = IERC20(USDC_ADDRESS);
+  IERC20 radToken = IERC20(RAD_ADDRESS);
+
+  function setUp() public override {
+    super.setUp();
+    usdcToken = IERC20(USDC_ADDRESS);
+    radToken = IERC20(RAD_ADDRESS);
+  }
+
+  function testFuzz_OldGovernorSendsGTCAfterProposalIsDefeated(
     uint256 _gtcAmount,
     address _gtcReceiver
   ) public {
@@ -292,5 +305,80 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     // Ensure the tokens have been transferred from the timelock to the receiver
     assertEq(gtcToken.balanceOf(TIMELOCK), _timelockGtcBalance - _gtcAmount);
     assertEq(gtcToken.balanceOf(_gtcReceiver), _initialGtcBalance + _gtcAmount);
+  }
+
+  function testFuzz_OldGovernorSendsVariousTokensAfterProposalIsDefeated(
+    uint256 _usdcAmount,
+    address _usdcReceiver,
+    uint256 _radAmount,
+    address _radReceiver
+  ) public {
+    vm.assume(
+      _usdcReceiver != TIMELOCK && _usdcReceiver != address(0x0) && _radReceiver != TIMELOCK
+        && _radReceiver != address(0x0)
+    );
+
+    uint256 _timelockUsdcBalance = usdcToken.balanceOf(TIMELOCK);
+    uint256 _timelockRadBalance = radToken.balanceOf(TIMELOCK);
+
+    // bound by the number of tokens the timelock currently controls
+    _usdcAmount = bound(_usdcAmount, 0, _timelockUsdcBalance);
+    _radAmount = bound(_radAmount, 0, _timelockRadBalance);
+
+    // record receivers initial balances
+    uint256 _initialUsdcBalance = usdcToken.balanceOf(_usdcReceiver);
+    uint256 _initialRadBalance = radToken.balanceOf(_radReceiver);
+
+    // Defeat the proposal to upgrade the Governor
+    defeatProposal();
+
+    // Craft a new proposal to send amounts of all three tokens
+    address[] memory _targets = new address[](2);
+    uint256[] memory _values = new uint256[](2);
+    string[] memory _signatures = new string [](2);
+    bytes[] memory _calldatas = new bytes[](2);
+
+    _targets[0] = USDC_ADDRESS;
+    _values[0] = 0;
+    _signatures[0] = "transfer(address,uint256)";
+    _calldatas[0] = abi.encode(_usdcReceiver, _usdcAmount);
+
+    _targets[1] = RAD_ADDRESS;
+    _values[1] = 0;
+    _signatures[1] = "transfer(address,uint256)";
+    _calldatas[1] = abi.encode(_radReceiver, _radAmount);
+
+    // Submit the new proposal
+    vm.prank(PROPOSER);
+    uint256 _newProposalId = governorAlpha.propose(
+      _targets, _values, _signatures, _calldatas, "Transfer some tokens from the old Governor"
+    );
+
+    // Pass and execute the new proposal
+    {
+      // separate scope to avoid stack to deep
+      (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
+      vm.roll(_startBlock + 1);
+      for (uint256 _index = 0; _index < delegates.length; _index++) {
+        vm.prank(delegates[_index]);
+        governorAlpha.castVote(_newProposalId, true);
+      }
+      vm.roll(_endBlock + 1);
+      governorAlpha.queue(_newProposalId);
+      vm.roll(block.number + 1);
+      (,, uint256 _eta,,,,,,) = governorAlpha.proposals(_newProposalId);
+      vm.warp(_eta + 1);
+      governorAlpha.execute(_newProposalId);
+
+      // Ensure the new proposal is now executed
+      uint8 _state = governorAlpha.state(_newProposalId);
+      assertEq(_state, EXECUTED);
+    }
+
+    // Ensure token balances have all been updated
+    assertEq(usdcToken.balanceOf(TIMELOCK), _timelockUsdcBalance - _usdcAmount);
+    assertEq(usdcToken.balanceOf(_usdcReceiver), _initialUsdcBalance + _usdcAmount);
+    assertEq(radToken.balanceOf(TIMELOCK), _timelockRadBalance - _radAmount);
+    assertEq(radToken.balanceOf(_radReceiver), _initialRadBalance + _radAmount);
   }
 }
