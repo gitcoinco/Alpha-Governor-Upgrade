@@ -381,4 +381,49 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     assertEq(radToken.balanceOf(TIMELOCK), _timelockRadBalance - _radAmount);
     assertEq(radToken.balanceOf(_radReceiver), _initialRadBalance + _radAmount);
   }
+
+  function testFuzz_OldGovernorCanNotSendGTCAfterUpgradeCompletes(
+    uint256 _gtcAmount,
+    address _gtcReceiver
+  ) public {
+    vm.assume(_gtcReceiver != TIMELOCK && _gtcReceiver != address(0x0));
+    uint256 _timelockGtcBalance = gtcToken.balanceOf(TIMELOCK);
+    // bound by the number of tokens the timelock currently controls
+    _gtcAmount = bound(_gtcAmount, 0, _timelockGtcBalance);
+
+    // Pass and execute the proposal to upgrade the Governor
+    passAndQueueProposal();
+    jumpPastProposalEta();
+    governorAlpha.execute(proposalId);
+
+    // Craft a new proposal to send GTC
+    address[] memory _targets = new address[](1);
+    uint256[] memory _values = new uint256[](1);
+    string[] memory _signatures = new string [](1);
+    bytes[] memory _calldatas = new bytes[](1);
+
+    _targets[0] = GTC_TOKEN;
+    _values[0] = 0;
+    _signatures[0] = "transfer(address,uint256)";
+    _calldatas[0] = abi.encode(_gtcReceiver, _gtcAmount);
+
+    // Submit the new proposal to Governor ALPHA, which is now deprecated
+    vm.prank(PROPOSER);
+    uint256 _newProposalId = governorAlpha.propose(
+      _targets, _values, _signatures, _calldatas, "Transfer some GTC from the old Governor"
+    );
+
+    // Pass the new proposal
+    (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
+    vm.roll(_startBlock + 1);
+    for (uint256 _index = 0; _index < delegates.length; _index++) {
+      vm.prank(delegates[_index]);
+      governorAlpha.castVote(_newProposalId, true);
+    }
+    vm.roll(_endBlock + 1);
+
+    // Attempt to queue the new proposal, which should now fail
+    vm.expectRevert("Timelock::queueTransaction: Call must come from admin.");
+    governorAlpha.queue(_newProposalId);
+  }
 }
