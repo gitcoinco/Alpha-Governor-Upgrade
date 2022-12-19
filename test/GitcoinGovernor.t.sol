@@ -66,7 +66,7 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
   uint8 constant EXECUTED = 7;
 
   function setUp() public virtual override {
-    super.setUp();
+    GitcoinGovernorTestHelper.setUp();
 
     initialProposalCount = governorAlpha.proposalCount();
 
@@ -249,7 +249,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
   IERC20 radToken = IERC20(RAD_ADDRESS);
 
   function setUp() public override {
-    super.setUp();
+    GitcoinGovernorProposalTestHelper.setUp();
     usdcToken = IERC20(USDC_ADDRESS);
     radToken = IERC20(RAD_ADDRESS);
   }
