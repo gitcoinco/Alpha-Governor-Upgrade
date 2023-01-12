@@ -464,7 +464,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     vm.warp(_eta + 1);
   }
 
-  function delegatesVoteOnProposal(uint256 _proposalId, uint8 _support) public {
+  function delegatesVoteOnBravoGovernor(uint256 _proposalId, uint8 _support) public {
     assertLt(_support, 3, "Invalid value for support");
 
     for (uint256 _index = 0; _index < delegates.length; _index++) {
@@ -526,7 +526,13 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assumeReceiver(_receiver);
 
     upgradeToBravoGovernor();
-    (uint256 _newProposalId,,,,) = submitTokenSendProposal(address(_token), _amount, _receiver);
+    (
+      uint256 _newProposalId,
+      address[] memory _targets,
+      uint256[] memory _values,
+      bytes[] memory _calldatas,
+      string memory _description
+    ) = submitTokenSendProposal(address(_token), _amount, _receiver);
 
     // Ensure proposal is in the expected state
     IGovernor.ProposalState _state = governor.state(_newProposalId);
@@ -538,12 +544,16 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _state = governor.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Active);
 
-    delegatesVoteOnProposal(_newProposalId, AGAINST);
+    delegatesVoteOnBravoGovernor(_newProposalId, AGAINST);
     jumpToVotingComplete(_newProposalId);
 
     // Ensure the proposal has failed
     _state = governor.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Defeated);
+
+    // It should not be possible to queue the proposal
+    vm.expectRevert("Governor: proposal not successful");
+    governor.queue(_targets, _values, _calldatas, keccak256(bytes(_description)));
   }
 
   function testFuzz_NewGovernorCanPassProposalToSendToken(uint256 _amount, address _receiver)
@@ -576,7 +586,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _state = governor.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Active);
 
-    delegatesVoteOnProposal(_newProposalId, FOR);
+    delegatesVoteOnBravoGovernor(_newProposalId, FOR);
     jumpToVotingComplete(_newProposalId);
 
     // Ensure the proposal has succeeded
@@ -644,7 +654,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _state = governor.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Active);
 
-    delegatesVoteOnProposal(_newProposalId, FOR);
+    delegatesVoteOnBravoGovernor(_newProposalId, FOR);
     jumpToVotingComplete(_newProposalId);
 
     // Ensure the proposal has succeeded
@@ -671,5 +681,122 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(governor.votingDelay(), _newDelay);
     assertEq(governor.votingPeriod(), _newVotingPeriod);
     assertEq(governor.proposalThreshold(), _newProposalThreshold);
+  }
+
+  function testFuzz_NewGovernorCanPassMixedProposal(uint256 _amount, address _receiver) public {
+    IERC20 _token = _randomERC20Token(_amount);
+    assumeReceiver(_receiver);
+    uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
+
+    // bound by the number of tokens the timelock currently controls
+    _amount = bound(_amount, 0, _timelockTokenBalance);
+    uint256 _initialTokenBalance = _token.balanceOf(_receiver);
+
+    upgradeToBravoGovernor();
+    (
+      uint256 _newProposalId,
+      address[] memory _targets,
+      uint256[] memory _values,
+      bytes[] memory _calldatas,
+      string memory _description
+    ) = submitTokenSendProposal(address(_token), _amount, _receiver);
+
+    // Ensure proposal is in the expected state
+    IGovernor.ProposalState _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Pending);
+
+    jumpToActiveProposal(_newProposalId);
+
+    // Ensure the proposal is now Active
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Active);
+
+    // Delegates vote with a mix of For/Against/Abstain with For winning.
+    vm.prank(PROPOSER); // kbw.eth (~1.8M votes)
+    governor.castVote(_newProposalId, FOR);
+    vm.prank(0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479); // janineleger.eth (~1.53M)
+    governor.castVote(_newProposalId, FOR);
+    vm.prank(0x4Be88f63f919324210ea3A2cCAD4ff0734425F91); // kevinolsen.eth (~1.35M)
+    governor.castVote(_newProposalId, FOR);
+    vm.prank(0x34aA3F359A9D614239015126635CE7732c18fDF3); // Austin Griffith (~1.05M)
+    governor.castVote(_newProposalId, AGAINST);
+    vm.prank(0x7E052Ef7B4bB7E5A45F331128AFadB1E589deaF1); // Kris Is (~1.05M)
+    governor.castVote(_newProposalId, ABSTAIN);
+    vm.prank(0x5e349eca2dc61aBCd9dD99Ce94d04136151a09Ee); // Linda Xie (~1.02M)
+    governor.castVote(_newProposalId, AGAINST);
+
+    jumpToVotingComplete(_newProposalId);
+
+    // Ensure the proposal has succeeded
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Succeeded);
+
+    // Queue the proposal
+    governor.queue(_targets, _values, _calldatas, keccak256(bytes(_description)));
+
+    jumpPastProposalEta(_newProposalId);
+
+    // Execute the proposal
+    governor.execute(_targets, _values, _calldatas, keccak256(bytes(_description)));
+
+    // Ensure the proposal is executed
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Executed);
+
+    // Ensure the tokens have been transferred
+    assertEq(_token.balanceOf(_receiver), _initialTokenBalance + _amount);
+    assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amount);
+  }
+
+  function testFuzz_NewGovernorCanDefeatMixedProposal(uint256 _amount, address _receiver) public {
+    IERC20 _token = _randomERC20Token(_amount);
+    assumeReceiver(_receiver);
+    uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
+
+    // bound by the number of tokens the timelock currently controls
+    _amount = bound(_amount, 0, _timelockTokenBalance);
+
+    upgradeToBravoGovernor();
+    (
+      uint256 _newProposalId,
+      address[] memory _targets,
+      uint256[] memory _values,
+      bytes[] memory _calldatas,
+      string memory _description
+    ) = submitTokenSendProposal(address(_token), _amount, _receiver);
+
+    // Ensure proposal is in the expected state
+    IGovernor.ProposalState _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Pending);
+
+    jumpToActiveProposal(_newProposalId);
+
+    // Ensure the proposal is now Active
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Active);
+
+    // Delegates vote with a mix of For/Against/Abstain with Against/Abstain winning.
+    vm.prank(PROPOSER); // kbw.eth (~1.8M votes)
+    governor.castVote(_newProposalId, ABSTAIN);
+    vm.prank(0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479); // janineleger.eth (~1.53M)
+    governor.castVote(_newProposalId, FOR);
+    vm.prank(0x4Be88f63f919324210ea3A2cCAD4ff0734425F91); // kevinolsen.eth (~1.35M)
+    governor.castVote(_newProposalId, FOR);
+    vm.prank(0x34aA3F359A9D614239015126635CE7732c18fDF3); // Austin Griffith (~1.05M)
+    governor.castVote(_newProposalId, AGAINST);
+    vm.prank(0x7E052Ef7B4bB7E5A45F331128AFadB1E589deaF1); // Kris Is (~1.05M)
+    governor.castVote(_newProposalId, AGAINST);
+    vm.prank(0x5e349eca2dc61aBCd9dD99Ce94d04136151a09Ee); // Linda Xie (~1.02M)
+    governor.castVote(_newProposalId, AGAINST);
+
+    jumpToVotingComplete(_newProposalId);
+
+    // Ensure the proposal has failed
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Defeated);
+
+    // It should not be possible to queue the proposal
+    vm.expectRevert("Governor: proposal not successful");
+    governor.queue(_targets, _values, _calldatas, keccak256(bytes(_description)));
   }
 }
