@@ -46,6 +46,10 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
 
   IGovernorAlpha governorAlpha = IGovernorAlpha(0xDbD27635A534A3d3169Ef0498beB56Fb9c937489);
   IGTC gtcToken = IGTC(GTC_TOKEN);
+  address constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+  address constant RAD_ADDRESS = 0x31c8EAcBFFdD875c74b94b077895Bd78CF1E64A3;
+  IERC20 usdcToken = IERC20(USDC_ADDRESS);
+  IERC20 radToken = IERC20(RAD_ADDRESS);
   ICompoundTimelock timelock = ICompoundTimelock(payable(TIMELOCK));
   uint256 initialProposalCount;
   uint256 upgradeProposalId;
@@ -249,16 +253,8 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 }
 
 contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelper {
-  address constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-  address constant RAD_ADDRESS = 0x31c8EAcBFFdD875c74b94b077895Bd78CF1E64A3;
-
-  IERC20 usdcToken = IERC20(USDC_ADDRESS);
-  IERC20 radToken = IERC20(RAD_ADDRESS);
-
   function setUp() public override {
     GitcoinGovernorProposalTestHelper.setUp();
-    usdcToken = IERC20(USDC_ADDRESS);
-    radToken = IERC20(RAD_ADDRESS);
   }
 
   function testFuzz_OldGovernorSendsGTCAfterProposalIsDefeated(
@@ -477,7 +473,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     }
   }
 
-  function submitGtcSendProposal(uint256 _gtcAmount, address _gtcReceiver)
+  function submitTokenSendProposal(address _token, uint256 _amount, address _receiver)
     public
     returns (uint256, address[] memory, uint256[] memory, bytes[] memory, string memory)
   {
@@ -486,11 +482,11 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     uint256[] memory _values = new uint256[](1);
     bytes[] memory _calldatas = new bytes[](1);
 
-    _targets[0] = GTC_TOKEN;
+    _targets[0] = _token;
     _values[0] = 0;
     _calldatas[0] =
-      buildProposalData("transfer(address,uint256)", abi.encode(_gtcReceiver, _gtcAmount));
-    string memory _description = "Transfer some GTC from the old Governor";
+      buildProposalData("transfer(address,uint256)", abi.encode(_receiver, _amount));
+    string memory _description = "Transfer some token from the new Governor";
 
     // Submit the new proposal
     vm.prank(PROPOSER);
@@ -512,22 +508,27 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   {
     assumeReceiver(_gtcReceiver);
     passQueueAndExecuteUpgradeProposal();
-    (uint256 _newProposalId,,,,) = submitGtcSendProposal(_gtcAmount, _gtcReceiver);
+    (uint256 _newProposalId,,,,) = submitTokenSendProposal(address(gtcToken), _gtcAmount, _gtcReceiver);
 
     // Ensure proposal is in the expected state
     IGovernor.ProposalState _state = governor.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Pending);
   }
 
-  function testFuzz_NewGovernorCanPassProposalAndSendGtc(uint256 _gtcAmount, address _gtcReceiver)
+  function testFuzz_NewGovernorCanPassProposalAndSendToken(uint256 _amount, address _receiver)
     public
   {
-    assumeReceiver(_gtcReceiver);
-    uint256 _timelockGtcBalance = gtcToken.balanceOf(TIMELOCK);
+    IERC20 _token;
+    if (_amount % 3 == 0) _token = IERC20(address(gtcToken));
+    if (_amount % 3 == 1) _token = usdcToken;
+    if (_amount % 3 == 2) _token = radToken;
+
+    assumeReceiver(_receiver);
+    uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
 
     // bound by the number of tokens the timelock currently controls
-    _gtcAmount = bound(_gtcAmount, 0, _timelockGtcBalance);
-    uint256 _initialGtcBalance = gtcToken.balanceOf(_gtcReceiver);
+    _amount = bound(_amount, 0, _timelockTokenBalance);
+    uint256 _initialTokenBalance = _token.balanceOf(_receiver);
 
     passQueueAndExecuteUpgradeProposal();
     (
@@ -536,7 +537,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
       uint256[] memory _values,
       bytes[] memory _calldatas,
       string memory _description
-    ) = submitGtcSendProposal(_gtcAmount, _gtcReceiver);
+    ) = submitTokenSendProposal(address(_token), _amount, _receiver);
 
     // Ensure proposal is in the expected state
     IGovernor.ProposalState _state = governor.state(_newProposalId);
@@ -572,7 +573,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(_state, IGovernor.ProposalState.Executed);
 
     // Ensure the tokens have been transferred
-    assertEq(gtcToken.balanceOf(_gtcReceiver), _initialGtcBalance + _gtcAmount);
-    assertEq(gtcToken.balanceOf(TIMELOCK), _timelockGtcBalance - _gtcAmount);
+    assertEq(_token.balanceOf(_receiver), _initialTokenBalance + _amount);
+    assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amount);
   }
 }
