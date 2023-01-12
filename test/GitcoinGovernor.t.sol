@@ -133,7 +133,7 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
     governorAlpha.queue(upgradeProposalId);
   }
 
-  function passQueueAndExecuteUpgradeProposal() public {
+  function upgradeToBravoGovernor() public {
     passAndQueueUpgradeProposal();
     jumpPastProposalEta();
     governorAlpha.execute(upgradeProposalId);
@@ -395,7 +395,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     _gtcAmount = bound(_gtcAmount, 0, _timelockGtcBalance);
 
     // Pass and execute the proposal to upgrade the Governor
-    passQueueAndExecuteUpgradeProposal();
+    upgradeToBravoGovernor();
 
     // Craft a new proposal to send GTC
     address[] memory _targets = new address[](1);
@@ -507,7 +507,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     public
   {
     assumeReceiver(_gtcReceiver);
-    passQueueAndExecuteUpgradeProposal();
+    upgradeToBravoGovernor();
     (uint256 _newProposalId,,,,) = submitTokenSendProposal(address(gtcToken), _gtcAmount, _gtcReceiver);
 
     // Ensure proposal is in the expected state
@@ -525,7 +525,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     IERC20 _token = _randomERC20Token(_amount);
     assumeReceiver(_receiver);
 
-    passQueueAndExecuteUpgradeProposal();
+    upgradeToBravoGovernor();
     (uint256 _newProposalId,,,,) = submitTokenSendProposal(address(_token), _amount, _receiver);
 
     // Ensure proposal is in the expected state
@@ -557,7 +557,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _amount = bound(_amount, 0, _timelockTokenBalance);
     uint256 _initialTokenBalance = _token.balanceOf(_receiver);
 
-    passQueueAndExecuteUpgradeProposal();
+    upgradeToBravoGovernor();
     (
       uint256 _newProposalId,
       address[] memory _targets,
