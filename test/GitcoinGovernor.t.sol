@@ -515,14 +515,41 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(_state, IGovernor.ProposalState.Pending);
   }
 
-  function testFuzz_NewGovernorCanPassProposalAndSendToken(uint256 _amount, address _receiver)
+  function _randomERC20Token(uint256 _seed) internal view returns(IERC20 _token) {
+    if (_seed % 3 == 0) _token = IERC20(address(gtcToken));
+    if (_seed % 3 == 1) _token = usdcToken;
+    if (_seed % 3 == 2) _token = radToken;
+  }
+
+  function testFuzz_NewGovernorCanDefeatProposal(uint256 _amount, address _receiver) public {
+    IERC20 _token = _randomERC20Token(_amount);
+    assumeReceiver(_receiver);
+
+    passQueueAndExecuteUpgradeProposal();
+    (uint256 _newProposalId,,,,) = submitTokenSendProposal(address(_token), _amount, _receiver);
+
+    // Ensure proposal is in the expected state
+    IGovernor.ProposalState _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Pending);
+
+    jumpToActiveProposal(_newProposalId);
+
+    // Ensure the proposal is now Active
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Active);
+
+    delegatesVoteOnProposal(_newProposalId, AGAINST);
+    jumpToVotingComplete(_newProposalId);
+
+    // Ensure the proposal has failed
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Defeated);
+  }
+
+  function testFuzz_NewGovernorCanPassProposalToSendToken(uint256 _amount, address _receiver)
     public
   {
-    IERC20 _token;
-    if (_amount % 3 == 0) _token = IERC20(address(gtcToken));
-    if (_amount % 3 == 1) _token = usdcToken;
-    if (_amount % 3 == 2) _token = radToken;
-
+    IERC20 _token = _randomERC20Token(_amount);
     assumeReceiver(_receiver);
     uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
 
