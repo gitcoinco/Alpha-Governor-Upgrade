@@ -603,4 +603,73 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(_token.balanceOf(_receiver), _initialTokenBalance + _amount);
     assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amount);
   }
+
+  function testFuzz_NewGovernorCanUpdateSettingsViaSuccessfulProposal(
+    uint256 _newDelay,
+    uint256 _newVotingPeriod,
+    uint256 _newProposalThreshold
+  ) public {
+    // The upper bounds are arbitrary here.
+    _newDelay = bound(_newDelay, 0, 50_000); // about a week at 1 block per 12s
+    _newVotingPeriod = bound(_newVotingPeriod, 1, 200_000); // about a month
+    _newProposalThreshold = bound(_newProposalThreshold, 0, 42 ether);
+
+    upgradeToBravoGovernor();
+
+    address[] memory _targets = new address[](3);
+    uint256[] memory _values = new uint256[](3);
+    bytes[] memory _calldatas = new bytes[](3);
+    string memory _description = "Update governance settings";
+
+    _targets[0] = address(governor);
+    _calldatas[0] = buildProposalData("setVotingDelay(uint256)", abi.encode(_newDelay));
+
+    _targets[1] = address(governor);
+    _calldatas[1] = buildProposalData("setVotingPeriod(uint256)", abi.encode(_newVotingPeriod));
+
+    _targets[2] = address(governor);
+    _calldatas[2] = buildProposalData("setProposalThreshold(uint256)", abi.encode(_newProposalThreshold));
+
+    // Submit the new proposal
+    vm.prank(PROPOSER);
+    uint256 _newProposalId = governor.propose(_targets, _values, _calldatas, _description);
+
+    // Ensure proposal is in the expected state
+    IGovernor.ProposalState _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Pending);
+
+    jumpToActiveProposal(_newProposalId);
+
+    // Ensure the proposal is now Active
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Active);
+
+    delegatesVoteOnProposal(_newProposalId, FOR);
+    jumpToVotingComplete(_newProposalId);
+
+    // Ensure the proposal has succeeded
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Succeeded);
+
+    // Queue the proposal
+    governor.queue(_targets, _values, _calldatas, keccak256(bytes(_description)));
+
+    // Ensure the proposal is queued
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Queued);
+
+    jumpPastProposalEta(_newProposalId);
+
+    // Execute the proposal
+    governor.execute(_targets, _values, _calldatas, keccak256(bytes(_description)));
+
+    // Ensure the proposal is executed
+    _state = governor.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Executed);
+
+    // Confirm that governance settings have updated.
+    assertEq(governor.votingDelay(), _newDelay);
+    assertEq(governor.votingPeriod(), _newVotingPeriod);
+    assertEq(governor.proposalThreshold(), _newProposalThreshold);
+  }
 }
