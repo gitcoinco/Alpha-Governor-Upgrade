@@ -486,7 +486,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _values[0] = 0;
     _calldatas[0] =
       buildProposalData("transfer(address,uint256)", abi.encode(_receiver, _amount));
-    string memory _description = "Transfer some token from the new Governor";
+    string memory _description = "Transfer some tokens from the new Governor";
 
     // Submit the new proposal
     vm.prank(PROPOSER);
@@ -798,5 +798,88 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     // It should not be possible to queue the proposal
     vm.expectRevert("Governor: proposal not successful");
     governor.queue(_targets, _values, _calldatas, keccak256(bytes(_description)));
+  }
+
+  struct NewGovernorUnaffectedByVotesOnOldGovernorVars {
+    uint256 alphaProposalId;
+    address[] alphaTargets;
+    uint256[] alphaValues;
+    string[] alphaSignatures;
+    bytes[] alphaCalldatas;
+    string alphaDescription;
+    uint256 bravoProposalId;
+    address[] bravoTargets;
+    uint256[] bravoValues;
+    bytes[] bravoCalldatas;
+    string bravoDescription;
+  }
+
+  function testFuzz_NewGovernorUnaffectedByVotesOnOldGovernor(uint256 _amount, address _receiver) public {
+    NewGovernorUnaffectedByVotesOnOldGovernorVars memory _vars;
+    IERC20 _token = _randomERC20Token(_amount);
+    assumeReceiver(_receiver);
+
+    upgradeToBravoGovernor();
+
+    // Create a new proposal to send the token.
+    _vars.alphaTargets = new address[](1);
+    _vars.alphaValues = new uint256[](1);
+    _vars.alphaSignatures = new string [](1);
+    _vars.alphaCalldatas = new bytes[](1);
+    _vars.alphaDescription = "Transfer some tokens from the new Governor";
+
+    _vars.alphaTargets[0] = address(_token);
+    _vars.alphaSignatures[0] = "transfer(address,uint256)";
+    _vars.alphaCalldatas[0] = abi.encode(_receiver, _amount);
+
+    // Submit the new proposal to Governor Alpha, which is now deprecated.
+    vm.prank(PROPOSER);
+    _vars.alphaProposalId = governorAlpha.propose(
+      _vars.alphaTargets,
+      _vars.alphaValues,
+      _vars.alphaSignatures,
+      _vars.alphaCalldatas,
+      _vars.alphaDescription
+    );
+
+    // Now construct and submit an identical proposal on Governor Bravo, which is active.
+    (
+      _vars.bravoProposalId,
+      _vars.bravoTargets,
+      _vars.bravoValues,
+      _vars.bravoCalldatas,
+      _vars.bravoDescription
+    ) = submitTokenSendProposal(address(_token), _amount, _receiver);
+
+    assertEq(governor.state(_vars.bravoProposalId), IGovernor.ProposalState.Pending);
+    assertEq(
+      uint8(governorAlpha.state(_vars.alphaProposalId)),
+      uint8(governor.state(_vars.bravoProposalId))
+    );
+
+    jumpToActiveProposal(_vars.bravoProposalId);
+
+    // Defeat the proposal on Bravo.
+    assertEq(governor.state(_vars.bravoProposalId), IGovernor.ProposalState.Active);
+    delegatesVoteOnBravoGovernor(_vars.bravoProposalId, AGAINST);
+
+    // Pass the proposal on Alpha.
+    for (uint256 _index = 0; _index < delegates.length; _index++) {
+      vm.prank(delegates[_index]);
+      governorAlpha.castVote(_vars.alphaProposalId, true);
+    }
+
+    jumpToVotingComplete(_vars.bravoProposalId);
+
+    // Ensure the Bravo proposal has failed and Alpha has succeeded.
+    assertEq(governor.state(_vars.bravoProposalId), IGovernor.ProposalState.Defeated);
+    assertEq(governorAlpha.state(_vars.alphaProposalId), uint8(IGovernor.ProposalState.Succeeded));
+
+    // It should not be possible to queue either proposal, confirming that votes
+    // on alpha do not affect votes on bravo.
+    vm.expectRevert("Governor: proposal not successful");
+    governor.queue(_vars.bravoTargets, _vars.bravoValues, _vars.bravoCalldatas, keccak256(bytes(_vars.bravoDescription)));
+    vm.expectRevert("Timelock::queueTransaction: Call must come from admin.");
+    governorAlpha.queue(_vars.alphaProposalId);
   }
 }
