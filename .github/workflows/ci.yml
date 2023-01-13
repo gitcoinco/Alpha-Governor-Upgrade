@@ -40,6 +40,14 @@ jobs:
         with:
           version: nightly
 
+      - name: Cache fork requests
+        uses: actions/cache@v3
+        with:
+          path: ~/.foundry/cache
+          key: ${{ runner.os }}-foundry-network-fork-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-foundry-network-fork-
+
       - name: Run tests
         run: forge test
 
