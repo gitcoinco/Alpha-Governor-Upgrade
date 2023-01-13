@@ -484,8 +484,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 
     _targets[0] = _token;
     _values[0] = 0;
-    _calldatas[0] =
-      buildProposalData("transfer(address,uint256)", abi.encode(_receiver, _amount));
+    _calldatas[0] = buildProposalData("transfer(address,uint256)", abi.encode(_receiver, _amount));
     string memory _description = "Transfer some tokens from the new Governor";
 
     // Submit the new proposal
@@ -508,14 +507,15 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   {
     assumeReceiver(_gtcReceiver);
     upgradeToBravoGovernor();
-    (uint256 _newProposalId,,,,) = submitTokenSendProposal(address(gtcToken), _gtcAmount, _gtcReceiver);
+    (uint256 _newProposalId,,,,) =
+      submitTokenSendProposal(address(gtcToken), _gtcAmount, _gtcReceiver);
 
     // Ensure proposal is in the expected state
     IGovernor.ProposalState _state = governorBravo.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Pending);
   }
 
-  function _randomERC20Token(uint256 _seed) internal view returns(IERC20 _token) {
+  function _randomERC20Token(uint256 _seed) internal view returns (IERC20 _token) {
     if (_seed % 3 == 0) _token = IERC20(address(gtcToken));
     if (_seed % 3 == 1) _token = usdcToken;
     if (_seed % 3 == 2) _token = radToken;
@@ -638,7 +638,8 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _calldatas[1] = buildProposalData("setVotingPeriod(uint256)", abi.encode(_newVotingPeriod));
 
     _targets[2] = address(governorBravo);
-    _calldatas[2] = buildProposalData("setProposalThreshold(uint256)", abi.encode(_newProposalThreshold));
+    _calldatas[2] =
+      buildProposalData("setProposalThreshold(uint256)", abi.encode(_newProposalThreshold));
 
     // Submit the new proposal
     vm.prank(PROPOSER);
@@ -814,7 +815,9 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     string bravoDescription;
   }
 
-  function testFuzz_NewGovernorUnaffectedByVotesOnOldGovernor(uint256 _amount, address _receiver) public {
+  function testFuzz_NewGovernorUnaffectedByVotesOnOldGovernor(uint256 _amount, address _receiver)
+    public
+  {
     NewGovernorUnaffectedByVotesOnOldGovernorVars memory _vars;
     IERC20 _token = _randomERC20Token(_amount);
     assumeReceiver(_receiver);
@@ -878,7 +881,12 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     // It should not be possible to queue either proposal, confirming that votes
     // on alpha do not affect votes on bravo.
     vm.expectRevert("Governor: proposal not successful");
-    governorBravo.queue(_vars.bravoTargets, _vars.bravoValues, _vars.bravoCalldatas, keccak256(bytes(_vars.bravoDescription)));
+    governorBravo.queue(
+      _vars.bravoTargets,
+      _vars.bravoValues,
+      _vars.bravoCalldatas,
+      keccak256(bytes(_vars.bravoDescription))
+    );
     vm.expectRevert("Timelock::queueTransaction: Call must come from admin.");
     governorAlpha.queue(_vars.alphaProposalId);
   }
