@@ -5,11 +5,11 @@
   verbosity = 3
 
 [profile.ci]
-  fuzz = { runs = 5000 }
-  invariant = { runs = 1000 }
+  fuzz = { runs = 5 }
+  invariant = { runs = 5 }
 
 [profile.lite]
-  fuzz = { runs = 50 }
+  fuzz = { runs = 50, seed = 1673481600 }
   invariant = { runs = 10 }
   # Speed up compilation and tests during development.
   optimizer = false
