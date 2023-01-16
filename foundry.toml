@@ -5,8 +5,8 @@
   verbosity = 3
 
 [profile.ci]
-  fuzz = { runs = 5 }
-  invariant = { runs = 5 }
+  fuzz = { runs = 500 }
+  invariant = { runs = 500 }
 
 [profile.lite]
   fuzz = { runs = 50, seed = 1673481600 }
