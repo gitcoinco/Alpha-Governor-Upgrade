@@ -436,6 +436,12 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   uint8 constant ABSTAIN = 2;
 
   function assumeReceiver(address _receiver) public {
+    // We don't want the receiver to be the Timelock, as that would make our
+    // assertions less meaningful -- most of our tests want to confirm that
+    // proposals can cause tokens to be sent *from* the timelock to somewhere
+    // else. We also don't want the zero address as a receiver -- if our
+    // governor is sending tokens to the zero address it could just be due to a
+    // bug.
     vm.assume(_receiver != TIMELOCK && _receiver != address(0x0));
   }
 
@@ -465,7 +471,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   }
 
   function delegatesVoteOnBravoGovernor(uint256 _proposalId, uint8 _support) public {
-    assertLt(_support, 3, "Invalid value for support");
+    require(_support < 3, "Invalid value for support");
 
     for (uint256 _index = 0; _index < delegates.length; _index++) {
       vm.prank(delegates[_index]);
@@ -498,10 +504,6 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(uint8(_actual), uint8(_expected));
   }
 
-  function setUp() public override {
-    GitcoinGovernorProposalTestHelper.setUp();
-  }
-
   function testFuzz_NewGovernorCanReceiveNewProposal(uint256 _gtcAmount, address _gtcReceiver)
     public
   {
@@ -521,8 +523,10 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     if (_seed % 3 == 2) _token = radToken;
   }
 
-  function testFuzz_NewGovernorCanDefeatProposal(uint256 _amount, address _receiver) public {
-    IERC20 _token = _randomERC20Token(_amount);
+  function testFuzz_NewGovernorCanDefeatProposal(uint256 _amount, address _receiver, uint256 _seed)
+    public
+  {
+    IERC20 _token = _randomERC20Token(_seed);
     assumeReceiver(_receiver);
 
     upgradeToBravoGovernor();
@@ -556,10 +560,12 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     governorBravo.queue(_targets, _values, _calldatas, keccak256(bytes(_description)));
   }
 
-  function testFuzz_NewGovernorCanPassProposalToSendToken(uint256 _amount, address _receiver)
-    public
-  {
-    IERC20 _token = _randomERC20Token(_amount);
+  function testFuzz_NewGovernorCanPassProposalToSendToken(
+    uint256 _amount,
+    address _receiver,
+    uint256 _seed
+  ) public {
+    IERC20 _token = _randomERC20Token(_seed);
     assumeReceiver(_receiver);
     uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
 
@@ -684,8 +690,12 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(governorBravo.proposalThreshold(), _newProposalThreshold);
   }
 
-  function testFuzz_NewGovernorCanPassMixedProposal(uint256 _amount, address _receiver) public {
-    IERC20 _token = _randomERC20Token(_amount);
+  function testFuzz_NewGovernorCanPassMixedProposal(
+    uint256 _amount,
+    address _receiver,
+    uint256 _seed
+  ) public {
+    IERC20 _token = _randomERC20Token(_seed);
     assumeReceiver(_receiver);
     uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
 
@@ -749,8 +759,12 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amount);
   }
 
-  function testFuzz_NewGovernorCanDefeatMixedProposal(uint256 _amount, address _receiver) public {
-    IERC20 _token = _randomERC20Token(_amount);
+  function testFuzz_NewGovernorCanDefeatMixedProposal(
+    uint256 _amount,
+    address _receiver,
+    uint256 _seed
+  ) public {
+    IERC20 _token = _randomERC20Token(_seed);
     assumeReceiver(_receiver);
     uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
 
@@ -815,11 +829,13 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     string bravoDescription;
   }
 
-  function testFuzz_NewGovernorUnaffectedByVotesOnOldGovernor(uint256 _amount, address _receiver)
-    public
-  {
+  function testFuzz_NewGovernorUnaffectedByVotesOnOldGovernor(
+    uint256 _amount,
+    address _receiver,
+    uint256 _seed
+  ) public {
     NewGovernorUnaffectedByVotesOnOldGovernorVars memory _vars;
-    IERC20 _token = _randomERC20Token(_amount);
+    IERC20 _token = _randomERC20Token(_seed);
     assumeReceiver(_receiver);
 
     upgradeToBravoGovernor();
