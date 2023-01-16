@@ -54,7 +54,7 @@ contract GitcoinGovernor is
     public
     view
     virtual
-    override (Governor, GovernorTimelockCompound)
+    override(Governor, GovernorTimelockCompound)
     returns (bool)
   {
     return GovernorTimelockCompound.supportsInterface(interfaceId);
@@ -65,7 +65,7 @@ contract GitcoinGovernor is
     public
     view
     virtual
-    override (Governor, GovernorSettings)
+    override(Governor, GovernorSettings)
     returns (uint256)
   {
     return GovernorSettings.proposalThreshold();
@@ -76,7 +76,7 @@ contract GitcoinGovernor is
     public
     view
     virtual
-    override (Governor, GovernorTimelockCompound)
+    override(Governor, GovernorTimelockCompound)
     returns (ProposalState)
   {
     return GovernorTimelockCompound.state(proposalId);
@@ -96,7 +96,7 @@ contract GitcoinGovernor is
     uint256[] memory values,
     bytes[] memory calldatas,
     bytes32 descriptionHash
-  ) internal virtual override (Governor, GovernorTimelockCompound) {
+  ) internal virtual override(Governor, GovernorTimelockCompound) {
     return
       GovernorTimelockCompound._execute(proposalId, targets, values, calldatas, descriptionHash);
   }
@@ -107,7 +107,7 @@ contract GitcoinGovernor is
     uint256[] memory values,
     bytes[] memory calldatas,
     bytes32 descriptionHash
-  ) internal virtual override (Governor, GovernorTimelockCompound) returns (uint256) {
+  ) internal virtual override(Governor, GovernorTimelockCompound) returns (uint256) {
     return GovernorTimelockCompound._cancel(targets, values, calldatas, descriptionHash);
   }
 
@@ -116,7 +116,7 @@ contract GitcoinGovernor is
     internal
     view
     virtual
-    override (Governor, GovernorTimelockCompound)
+    override(Governor, GovernorTimelockCompound)
     returns (address)
   {
     return GovernorTimelockCompound._executor();
