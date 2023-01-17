@@ -445,9 +445,9 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     // We don't want the receiver to be the Timelock, as that would make our
     // assertions less meaningful -- most of our tests want to confirm that
     // proposals can cause tokens to be sent *from* the timelock to somewhere
-    // else. We also don't want the zero address as a receiver -- if our
-    // governor is sending tokens to the zero address it could just be due to a
-    // bug.
+    // else. We also can't have the receiver be the zero address because GTC
+    // blocks transfers to the zero address -- see line 546:
+    // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
     vm.assume(_receiver != TIMELOCK && _receiver != address(0x0));
   }
 
