@@ -81,61 +81,67 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
 
   //--------------- HELPERS ---------------//
 
-  function upgradeProposalStartBlock() public view returns (uint256) {
+  function _randomERC20Token(uint256 _seed) internal view returns (IERC20 _token) {
+    if (_seed % 3 == 0) _token = IERC20(address(gtcToken));
+    if (_seed % 3 == 1) _token = usdcToken;
+    if (_seed % 3 == 2) _token = radToken;
+  }
+
+  function _upgradeProposalStartBlock() internal view returns (uint256) {
     (,,, uint256 _startBlock,,,,,) = governorAlpha.proposals(upgradeProposalId);
     return _startBlock;
   }
 
-  function upgradeProposalEndBlock() public view returns (uint256) {
+  function _upgradeProposalEndBlock() internal view returns (uint256) {
     (,,,, uint256 _endBlock,,,,) = governorAlpha.proposals(upgradeProposalId);
     return _endBlock;
   }
 
-  function upgradeProposalEta() public view returns (uint256) {
+  function _upgradeProposalEta() internal view returns (uint256) {
     (,, uint256 _eta,,,,,,) = governorAlpha.proposals(upgradeProposalId);
     return _eta;
   }
 
-  function jumpToActiveUpgradeProposal() public {
-    vm.roll(upgradeProposalStartBlock() + 1);
+  function _jumpToActiveUpgradeProposal() internal {
+    vm.roll(_upgradeProposalStartBlock() + 1);
   }
 
-  function jumpToUpgradeVoteComplete() public {
-    vm.roll(upgradeProposalEndBlock() + 1);
+  function _jumpToUpgradeVoteComplete() internal {
+    vm.roll(_upgradeProposalEndBlock() + 1);
   }
 
-  function jumpPastProposalEta() public {
+  function _jumpPastProposalEta() internal {
     vm.roll(block.number + 1); // move up one block so we're not in the same block as when queued
-    vm.warp(upgradeProposalEta() + 1); // jump past the eta timestamp
+    vm.warp(_upgradeProposalEta() + 1); // jump past the eta timestamp
   }
 
-  function delegatesVoteOnUpgradeProposal(bool _support) public {
+  function _delegatesVoteOnUpgradeProposal(bool _support) internal {
     for (uint256 _index = 0; _index < delegates.length; _index++) {
       vm.prank(delegates[_index]);
       governorAlpha.castVote(upgradeProposalId, _support);
     }
   }
 
-  function passUpgradeProposal() public {
-    jumpToActiveUpgradeProposal();
-    delegatesVoteOnUpgradeProposal(true);
-    jumpToUpgradeVoteComplete();
+  function _passUpgradeProposal() internal {
+    _jumpToActiveUpgradeProposal();
+    _delegatesVoteOnUpgradeProposal(true);
+    _jumpToUpgradeVoteComplete();
   }
 
-  function defeatUpgradeProposal() public {
-    jumpToActiveUpgradeProposal();
-    delegatesVoteOnUpgradeProposal(false);
-    jumpToUpgradeVoteComplete();
+  function _defeatUpgradeProposal() internal {
+    _jumpToActiveUpgradeProposal();
+    _delegatesVoteOnUpgradeProposal(false);
+    _jumpToUpgradeVoteComplete();
   }
 
-  function passAndQueueUpgradeProposal() public {
-    passUpgradeProposal();
+  function _passAndQueueUpgradeProposal() internal {
+    _passUpgradeProposal();
     governorAlpha.queue(upgradeProposalId);
   }
 
-  function upgradeToBravoGovernor() public {
-    passAndQueueUpgradeProposal();
-    jumpPastProposalEta();
+  function _upgradeToBravoGovernor() internal {
+    _passAndQueueUpgradeProposal();
+    _jumpPastProposalEta();
     governorAlpha.execute(upgradeProposalId);
   }
 }
@@ -171,7 +177,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   }
 
   function test_proposalActiveAfterDelay() public {
-    jumpToActiveUpgradeProposal();
+    _jumpToActiveUpgradeProposal();
 
     // Ensure proposal has become active the block after the voting delay
     uint8 _state = governorAlpha.state(upgradeProposalId);
@@ -179,8 +185,8 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   }
 
   function testFuzz_ProposerCanCastVote(bool _willSupport) public {
-    jumpToActiveUpgradeProposal();
-    uint256 _proposerVotes = gtcToken.getPriorVotes(PROPOSER, upgradeProposalStartBlock());
+    _jumpToActiveUpgradeProposal();
+    uint256 _proposerVotes = gtcToken.getPriorVotes(PROPOSER, _upgradeProposalStartBlock());
 
     vm.prank(PROPOSER);
     governorAlpha.castVote(upgradeProposalId, _willSupport);
@@ -192,7 +198,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   }
 
   function test_ProposalSucceedsWhenAllDelegatesVoteFor() public {
-    passUpgradeProposal();
+    _passUpgradeProposal();
 
     // Ensure proposal state is now succeeded
     uint8 _state = governorAlpha.state(upgradeProposalId);
@@ -200,7 +206,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   }
 
   function test_ProposalDefeatedWhenAllDelegatesVoteAgainst() public {
-    defeatUpgradeProposal();
+    _defeatUpgradeProposal();
 
     // Ensure proposal state is now defeated
     uint8 _state = governorAlpha.state(upgradeProposalId);
@@ -208,7 +214,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   }
 
   function test_ProposalCanBeQueuedAfterSucceeding() public {
-    passUpgradeProposal();
+    _passUpgradeProposal();
     governorAlpha.queue(upgradeProposalId);
 
     // Ensure proposal can be queued after success
@@ -237,8 +243,8 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   }
 
   function test_ProposalCanBeExecutedAfterDelay() public {
-    passAndQueueUpgradeProposal();
-    jumpPastProposalEta();
+    _passAndQueueUpgradeProposal();
+    _jumpPastProposalEta();
 
     // Execute the proposal
     governorAlpha.execute(upgradeProposalId);
@@ -268,7 +274,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     uint256 _initialGtcBalance = gtcToken.balanceOf(_gtcReceiver);
 
     // Defeat the proposal to upgrade the Governor
-    defeatUpgradeProposal();
+    _defeatUpgradeProposal();
 
     // Craft a new proposal to send GTC
     address[] memory _targets = new address[](1);
@@ -333,7 +339,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     uint256 _initialRadBalance = radToken.balanceOf(_radReceiver);
 
     // Defeat the proposal to upgrade the Governor
-    defeatUpgradeProposal();
+    _defeatUpgradeProposal();
 
     // Craft a new proposal to send amounts of all three tokens
     address[] memory _targets = new address[](2);
@@ -395,7 +401,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     _gtcAmount = bound(_gtcAmount, 0, _timelockGtcBalance);
 
     // Pass and execute the proposal to upgrade the Governor
-    upgradeToBravoGovernor();
+    _upgradeToBravoGovernor();
 
     // Craft a new proposal to send GTC
     address[] memory _targets = new address[](1);
@@ -464,7 +470,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     vm.roll(_deadline + 1);
   }
 
-  function jumpPastProposalEta(uint256 _proposalId) public {
+  function _jumpPastProposalEta(uint256 _proposalId) public {
     uint256 _eta = governorBravo.proposalEta(_proposalId);
     vm.roll(block.number + 1);
     vm.warp(_eta + 1);
@@ -508,7 +514,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     public
   {
     assumeReceiver(_gtcReceiver);
-    upgradeToBravoGovernor();
+    _upgradeToBravoGovernor();
     (uint256 _newProposalId,,,,) =
       submitTokenSendProposal(address(gtcToken), _gtcAmount, _gtcReceiver);
 
@@ -517,19 +523,13 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(_state, IGovernor.ProposalState.Pending);
   }
 
-  function _randomERC20Token(uint256 _seed) internal view returns (IERC20 _token) {
-    if (_seed % 3 == 0) _token = IERC20(address(gtcToken));
-    if (_seed % 3 == 1) _token = usdcToken;
-    if (_seed % 3 == 2) _token = radToken;
-  }
-
   function testFuzz_NewGovernorCanDefeatProposal(uint256 _amount, address _receiver, uint256 _seed)
     public
   {
     IERC20 _token = _randomERC20Token(_seed);
     assumeReceiver(_receiver);
 
-    upgradeToBravoGovernor();
+    _upgradeToBravoGovernor();
     (
       uint256 _newProposalId,
       address[] memory _targets,
@@ -573,7 +573,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _amount = bound(_amount, 0, _timelockTokenBalance);
     uint256 _initialTokenBalance = _token.balanceOf(_receiver);
 
-    upgradeToBravoGovernor();
+    _upgradeToBravoGovernor();
     (
       uint256 _newProposalId,
       address[] memory _targets,
@@ -606,7 +606,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _state = governorBravo.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Queued);
 
-    jumpPastProposalEta(_newProposalId);
+    _jumpPastProposalEta(_newProposalId);
 
     // Execute the proposal
     governorBravo.execute(_targets, _values, _calldatas, keccak256(bytes(_description)));
@@ -630,7 +630,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _newVotingPeriod = bound(_newVotingPeriod, 1, 200_000); // about a month
     _newProposalThreshold = bound(_newProposalThreshold, 0, 42 ether);
 
-    upgradeToBravoGovernor();
+    _upgradeToBravoGovernor();
 
     address[] memory _targets = new address[](3);
     uint256[] memory _values = new uint256[](3);
@@ -675,7 +675,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _state = governorBravo.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Queued);
 
-    jumpPastProposalEta(_newProposalId);
+    _jumpPastProposalEta(_newProposalId);
 
     // Execute the proposal
     governorBravo.execute(_targets, _values, _calldatas, keccak256(bytes(_description)));
@@ -703,7 +703,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _amount = bound(_amount, 0, _timelockTokenBalance);
     uint256 _initialTokenBalance = _token.balanceOf(_receiver);
 
-    upgradeToBravoGovernor();
+    _upgradeToBravoGovernor();
     (
       uint256 _newProposalId,
       address[] memory _targets,
@@ -745,7 +745,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     // Queue the proposal
     governorBravo.queue(_targets, _values, _calldatas, keccak256(bytes(_description)));
 
-    jumpPastProposalEta(_newProposalId);
+    _jumpPastProposalEta(_newProposalId);
 
     // Execute the proposal
     governorBravo.execute(_targets, _values, _calldatas, keccak256(bytes(_description)));
@@ -771,7 +771,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     // bound by the number of tokens the timelock currently controls
     _amount = bound(_amount, 0, _timelockTokenBalance);
 
-    upgradeToBravoGovernor();
+    _upgradeToBravoGovernor();
     (
       uint256 _newProposalId,
       address[] memory _targets,
@@ -838,7 +838,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     IERC20 _token = _randomERC20Token(_seed);
     assumeReceiver(_receiver);
 
-    upgradeToBravoGovernor();
+    _upgradeToBravoGovernor();
 
     // Create a new proposal to send the token.
     _vars.alphaTargets = new address[](1);
