@@ -54,6 +54,8 @@ jobs:
         run: forge test
 
   coverage:
+    env:
+      MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
