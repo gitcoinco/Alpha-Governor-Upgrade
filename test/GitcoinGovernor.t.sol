@@ -489,7 +489,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     public
     returns (uint256, address[] memory, uint256[] memory, bytes[] memory, string memory)
   {
-    // Craft a new proposal to send GTC
+    // Craft a new proposal to send _token.
     address[] memory _targets = new address[](1);
     uint256[] memory _values = new uint256[](1);
     bytes[] memory _calldatas = new bytes[](1);
@@ -505,6 +505,79 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 
     return (_newProposalId, _targets, _values, _calldatas, _description);
   }
+
+  // Take a proposal through its full lifecycle, from proposing it, to voting on
+  // it, to queuing it, to executing it (if relevant) via GovernorBravo.
+  function _queueAndVoteAndExecuteProposalWithBravoGovernor(
+    address[] memory _targets,
+    uint256[] memory _values,
+    bytes[] memory _calldatas,
+    string memory _description,
+    uint8 _voteType
+  ) internal {
+    // Submit the new proposal
+    vm.prank(PROPOSER);
+    uint256 _newProposalId = governorBravo.propose(
+      _targets, // Go away formatter!
+      _values,
+      _calldatas,
+      _description
+    );
+
+    // Ensure proposal is Pending.
+    IGovernor.ProposalState _state = governorBravo.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Pending);
+
+    jumpToActiveProposal(_newProposalId);
+
+    // Ensure the proposal is now Active.
+    _state = governorBravo.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Active);
+
+    // Have all delegates cast their weight with the specified support type.
+    delegatesVoteOnBravoGovernor(_newProposalId, _voteType);
+
+    jumpToVotingComplete(_newProposalId);
+
+    _state = governorBravo.state(_newProposalId);
+    if (_voteType == AGAINST || _voteType == ABSTAIN) {
+      // The proposal should have failed.
+      assertEq(_state, IGovernor.ProposalState.Defeated);
+
+      // Attempt to queue the proposal.
+      vm.expectRevert("Governor: proposal not successful");
+      governorBravo.queue(_targets, _values, _calldatas, keccak256(bytes(_description)));
+
+      _jumpPastProposalEta(_newProposalId);
+
+      // Attempt to execute the proposal.
+      vm.expectRevert("Governor: proposal not successful");
+      governorBravo.execute(_targets, _values, _calldatas, keccak256(bytes(_description)));
+
+      // Exit this function, there's nothing left to test.
+      return;
+    }
+
+    // The voteType was FOR. Ensure the proposal has succeeded.
+    assertEq(_state, IGovernor.ProposalState.Succeeded);
+
+    // Queue the proposal
+    governorBravo.queue(_targets, _values, _calldatas, keccak256(bytes(_description)));
+
+    // Ensure the proposal is queued
+    _state = governorBravo.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Queued);
+
+    _jumpPastProposalEta(_newProposalId);
+
+    // Execute the proposal
+    governorBravo.execute(_targets, _values, _calldatas, keccak256(bytes(_description)));
+
+    // Ensure the proposal is executed
+    _state = governorBravo.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Executed);
+  }
+
 
   function assertEq(IGovernor.ProposalState _actual, IGovernor.ProposalState _expected) public {
     assertEq(uint8(_actual), uint8(_expected));
@@ -618,6 +691,119 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     // Ensure the tokens have been transferred
     assertEq(_token.balanceOf(_receiver), _initialTokenBalance + _amount);
     assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amount);
+  }
+
+  function testFuzz_NewGovernorCanPassProposalToSendETH(
+    uint256 _amount,
+    address _receiver
+  ) public {
+    assumeReceiver(_receiver);
+    vm.deal(TIMELOCK, _amount);
+    uint256 _timelockETHBalance = TIMELOCK.balance;
+    uint256 _receiverETHBalance = _receiver.balance;
+
+    _upgradeToBravoGovernor();
+
+    // Craft a new proposal to send ETH.
+    address[] memory _targets = new address[](1);
+    uint256[] memory _values = new uint256[](1);
+    _targets[0] = _receiver;
+    _values[0] = _amount;
+
+    _queueAndVoteAndExecuteProposalWithBravoGovernor(
+      _targets,
+      _values,
+      new bytes[](1), // There is no calldata for a plain ETH call.
+      "Transfer some ETH via the new Governor",
+      FOR // Vote/suppport type.
+    );
+
+    // Ensure the ETH was transferred.
+    assertEq(_receiver.balance, _receiverETHBalance + _amount);
+    assertEq(TIMELOCK.balance, _timelockETHBalance - _amount);
+  }
+
+  function testFuzz_NewGovernorCanPassProposalToSendETHWithTokens(
+    uint256 _amountETH,
+    uint256 _amountToken,
+    address _receiver,
+    uint256 _seed
+  ) public {
+    IERC20 _token = _randomERC20Token(_seed);
+    assumeReceiver(_receiver);
+
+    vm.deal(TIMELOCK, _amountETH);
+    uint256 _timelockETHBalance = TIMELOCK.balance;
+    uint256 _receiverETHBalance = _receiver.balance;
+
+    // Bound _amountToken by the number of tokens the timelock currently controls.
+    uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
+    uint256 _receiverTokenBalance = _token.balanceOf(_receiver);
+    _amountToken = bound(_amountToken, 0, _timelockTokenBalance);
+
+    _upgradeToBravoGovernor();
+
+    // Craft a new proposal to send ETH and tokens.
+    address[] memory _targets = new address[](2);
+    uint256[] memory _values = new uint256[](2);
+    bytes[] memory _calldatas = new bytes[](2);
+
+    // First call transfers tokens.
+    _targets[0] = address(_token);
+    _calldatas[0] = buildProposalData(
+      "transfer(address,uint256)",
+      abi.encode(_receiver, _amountToken)
+    );
+
+    // Second call sends ETH.
+    _targets[1] = _receiver;
+    _values[1] = _amountETH;
+
+    _queueAndVoteAndExecuteProposalWithBravoGovernor(
+      _targets,
+      _values,
+      _calldatas,
+      "Transfer tokens and ETH via the new Governor",
+      FOR // Vote/suppport type.
+    );
+
+    // Ensure the ETH was transferred.
+    assertEq(_receiver.balance, _receiverETHBalance + _amountETH);
+    assertEq(TIMELOCK.balance, _timelockETHBalance - _amountETH);
+
+    // Ensure the tokens were transferred.
+    assertEq(_token.balanceOf(_receiver), _receiverTokenBalance + _amountToken);
+    assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amountToken);
+  }
+
+  function testFuzz_NewGovernorFailedProposalsCantSendETH(
+    uint256 _amount,
+    address _receiver
+  ) public {
+    assumeReceiver(_receiver);
+    vm.deal(TIMELOCK, _amount);
+    uint256 _timelockETHBalance = TIMELOCK.balance;
+    uint256 _receiverETHBalance = _receiver.balance;
+
+    _upgradeToBravoGovernor();
+
+    // Craft a new proposal to send ETH.
+    address[] memory _targets = new address[](1);
+    uint256[] memory _values = new uint256[](1);
+    _targets[0] = _receiver;
+    _values[0] = _amount;
+
+    _queueAndVoteAndExecuteProposalWithBravoGovernor(
+      _targets,
+      _values,
+      new bytes[](1), // There is no calldata for a plain ETH call.
+      "Transfer some ETH via the new Governor",
+      (_amount % 2 == 1 ? AGAINST : ABSTAIN) // Randomize vote type.
+    );
+
+    // Ensure ETH was *not* transferred.
+    assertEq(_receiver.balance, _receiverETHBalance);
+    assertEq(TIMELOCK.balance, _timelockETHBalance);
   }
 
   function testFuzz_NewGovernorCanUpdateSettingsViaSuccessfulProposal(
