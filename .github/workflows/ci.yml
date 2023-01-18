@@ -9,6 +9,9 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
+  DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+  MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+  PROPOSER_PRIVATE_KEY: ${{ secrets.PROPOSER_PRIVATE_KEY }}
 
 jobs:
   build:
@@ -28,10 +31,6 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    env:
-      DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
-      MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
-      PROPOSER_PRIVATE_KEY: ${{ secrets.PROPOSER_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v3
 
@@ -51,10 +50,6 @@ jobs:
         run: forge test
 
   coverage:
-    env:
-      DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
-      MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
-      PROPOSER_PRIVATE_KEY: ${{ secrets.PROPOSER_PRIVATE_KEY }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
