@@ -269,10 +269,9 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 }
 
 contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelper {
-  function testFuzz_OldGovernorSendsETHAfterProposalIsDefeated(
-    uint256 _amount,
-    address _receiver
-  ) public {
+  function testFuzz_OldGovernorSendsETHAfterProposalIsDefeated(uint256 _amount, address _receiver)
+    public
+  {
     _assumeReceiver(_receiver);
 
     // Counter-intuitively, the Governor must hold the ETH, not the Timelock.
@@ -526,7 +525,8 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
       uint256[] memory _values,
       bytes[] memory _calldata,
       string memory _description
-    ) {
+    )
+  {
     // Craft a new proposal to send _token.
     _targets = new address[](1);
     _values = new uint256[](1);
@@ -534,10 +534,8 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 
     _targets[0] = _token;
     _values[0] = 0;
-    _calldata[0] = buildProposalData(
-      "transfer(address,uint256)",
-      abi.encode(_receiver, _tokenAmount)
-    );
+    _calldata[0] =
+      buildProposalData("transfer(address,uint256)", abi.encode(_receiver, _tokenAmount));
     _description = "Transfer some tokens from the new Governor";
   }
 
@@ -549,13 +547,10 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
       uint256[] memory _values,
       bytes[] memory _calldata,
       string memory _description
-    ) {
-    (
-      _targets,
-      _values,
-      _calldata,
-      _description
-    ) = _buildTokenSendProposal(_token, _amount, _receiver);
+    )
+  {
+    (_targets, _values, _calldata, _description) =
+      _buildTokenSendProposal(_token, _amount, _receiver);
 
     // Submit the new proposal
     vm.prank(PROPOSER);
@@ -634,7 +629,6 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(_state, IGovernor.ProposalState.Executed);
   }
 
-
   function assertEq(IGovernor.ProposalState _actual, IGovernor.ProposalState _expected) public {
     assertEq(uint8(_actual), uint8(_expected));
   }
@@ -703,11 +697,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     ) = _buildTokenSendProposal(address(_token), _amount, _receiver);
 
     _queueAndVoteAndExecuteProposalWithBravoGovernor(
-      _targets,
-      _values,
-      _calldatas,
-      _description,
-      FOR
+      _targets, _values, _calldatas, _description, FOR
     );
 
     // Ensure the tokens have been transferred
@@ -715,10 +705,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amount);
   }
 
-  function testFuzz_NewGovernorCanPassProposalToSendETH(
-    uint256 _amount,
-    address _receiver
-  ) public {
+  function testFuzz_NewGovernorCanPassProposalToSendETH(uint256 _amount, address _receiver) public {
     _assumeReceiver(_receiver);
     vm.deal(TIMELOCK, _amount);
     uint256 _timelockETHBalance = TIMELOCK.balance;
@@ -772,10 +759,8 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 
     // First call transfers tokens.
     _targets[0] = address(_token);
-    _calldatas[0] = buildProposalData(
-      "transfer(address,uint256)",
-      abi.encode(_receiver, _amountToken)
-    );
+    _calldatas[0] =
+      buildProposalData("transfer(address,uint256)", abi.encode(_receiver, _amountToken));
 
     // Second call sends ETH.
     _targets[1] = _receiver;
@@ -798,10 +783,9 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amountToken);
   }
 
-  function testFuzz_NewGovernorFailedProposalsCantSendETH(
-    uint256 _amount,
-    address _receiver
-  ) public {
+  function testFuzz_NewGovernorFailedProposalsCantSendETH(uint256 _amount, address _receiver)
+    public
+  {
     _assumeReceiver(_receiver);
     vm.deal(TIMELOCK, _amount);
     uint256 _timelockETHBalance = TIMELOCK.balance;
