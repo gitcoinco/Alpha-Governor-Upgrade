@@ -269,6 +269,44 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 }
 
 contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelper {
+  function _queueAndVoteAndExecuteProposalWithAlphaGovernor(
+    address[] memory _targets,
+    uint256[] memory _values,
+    string[] memory _signatures,
+    bytes[] memory _calldatas,
+    bool isGovernorAlphaAdmin
+  ) internal {
+    // Submit the new proposal
+    vm.prank(PROPOSER);
+    uint256 _newProposalId =
+      governorAlpha.propose(_targets, _values, _signatures, _calldatas, "Proposal for old Governor");
+
+    // Pass and execute the new proposal
+    (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
+    vm.roll(_startBlock + 1);
+    for (uint256 _index = 0; _index < delegates.length; _index++) {
+      vm.prank(delegates[_index]);
+      governorAlpha.castVote(_newProposalId, true);
+    }
+    vm.roll(_endBlock + 1);
+
+    if (!isGovernorAlphaAdmin) {
+      vm.expectRevert("Timelock::queueTransaction: Call must come from admin.");
+      governorAlpha.queue(_newProposalId);
+      return;
+    }
+
+    governorAlpha.queue(_newProposalId);
+    vm.roll(block.number + 1);
+    (,, uint256 _eta,,,,,,) = governorAlpha.proposals(_newProposalId);
+    vm.warp(_eta + 1);
+
+    governorAlpha.execute(_newProposalId);
+
+    // Ensure the new proposal is now executed
+    assertEq(governorAlpha.state(_newProposalId), EXECUTED);
+  }
+
   function testFuzz_OldGovernorSendsETHAfterProposalIsDefeated(uint256 _amount, address _receiver)
     public
   {
@@ -293,33 +331,13 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     _targets[0] = _receiver;
     _values[0] = _amount;
 
-    // Submit the new proposal
-    vm.prank(PROPOSER);
-    uint256 _newProposalId = governorAlpha.propose(
+    _queueAndVoteAndExecuteProposalWithAlphaGovernor(
       _targets,
       _values,
       (new string[](1)), // No signature needed for an ETH send.
       (new bytes[](1)), // No calldata needed for an ETH send.
-      "Transfer ETH with old Governor"
+      true // GovernorAlpha is still the Timelock admin.
     );
-
-    // Pass and execute the new proposal
-    (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
-    vm.roll(_startBlock + 1);
-    for (uint256 _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
-      governorAlpha.castVote(_newProposalId, true);
-    }
-    vm.roll(_endBlock + 1);
-    governorAlpha.queue(_newProposalId);
-    vm.roll(block.number + 1);
-    (,, uint256 _eta,,,,,,) = governorAlpha.proposals(_newProposalId);
-    vm.warp(_eta + 1);
-
-    governorAlpha.execute(_newProposalId);
-
-    // Ensure the new proposal is now executed
-    assertEq(governorAlpha.state(_newProposalId), EXECUTED);
 
     // Ensure the ETH has been transferred to the receiver
     assertEq(address(governorAlpha).balance, _governorETHBalance - _amount);
@@ -351,28 +369,17 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     _targets[0] = _receiver;
     _values[0] = _amount;
 
-    // Submit the new proposal
-    vm.prank(PROPOSER);
-    uint256 _newProposalId = governorAlpha.propose(
+    _queueAndVoteAndExecuteProposalWithAlphaGovernor(
       _targets,
       _values,
       (new string[](1)), // No signature needed for an ETH send.
       (new bytes[](1)), // No calldata needed for an ETH send.
-      "Transfer ETH with old Governor"
+      false // GovernorAlpha is not the Timelock admin.
     );
 
-    // Pass the new proposal
-    (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
-    vm.roll(_startBlock + 1);
-    for (uint256 _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
-      governorAlpha.castVote(_newProposalId, true);
-    }
-    vm.roll(_endBlock + 1);
-
-    // Attempt to queue the new proposal, which should now fail.
-    vm.expectRevert("Timelock::queueTransaction: Call must come from admin.");
-    governorAlpha.queue(_newProposalId);
+    // Ensure no ETH has been transferred to the receiver
+    assertEq(address(governorAlpha).balance, _governorETHBalance);
+    assertEq(_receiver.balance, _receiverETHBalance);
   }
 
   function testFuzz_OldGovernorSendsTokenAfterProposalIsDefeated(
@@ -402,30 +409,15 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     _signatures[0] = "transfer(address,uint256)";
     _calldatas[0] = abi.encode(_receiver, _amount);
 
-    // Submit the new proposal
-    vm.prank(PROPOSER);
-    uint256 _newProposalId = governorAlpha.propose(
-      _targets, _values, _signatures, _calldatas, "Transfer tokens with old Governor"
+    _queueAndVoteAndExecuteProposalWithAlphaGovernor(
+      _targets,
+      _values,
+      _signatures,
+      _calldatas,
+      true // GovernorAlpha is still the Timelock admin.
     );
 
-    // Pass and execute the new proposal
-    (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
-    vm.roll(_startBlock + 1);
-    for (uint256 _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
-      governorAlpha.castVote(_newProposalId, true);
-    }
-    vm.roll(_endBlock + 1);
-    governorAlpha.queue(_newProposalId);
-    vm.roll(block.number + 1);
-    (,, uint256 _eta,,,,,,) = governorAlpha.proposals(_newProposalId);
-    vm.warp(_eta + 1);
-    governorAlpha.execute(_newProposalId);
-
-    // Ensure the new proposal is now executed
-    assertEq(governorAlpha.state(_newProposalId), EXECUTED);
-
-    // Ensure the tokens have been transferred from the timelock to the receiver
+    // Ensure the tokens have been transferred from the timelock to the receiver.
     assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amount);
     assertEq(_token.balanceOf(_receiver), _receiverTokenBalance + _amount);
   }
@@ -457,24 +449,17 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     _signatures[0] = "transfer(address,uint256)";
     _calldatas[0] = abi.encode(_receiver, _amount);
 
-    // Submit the new proposal
-    vm.prank(PROPOSER);
-    uint256 _newProposalId = governorAlpha.propose(
-      _targets, _values, _signatures, _calldatas, "Transfer tokens with old Governor"
+    _queueAndVoteAndExecuteProposalWithAlphaGovernor(
+      _targets,
+      _values,
+      _signatures,
+      _calldatas,
+      false // GovernorAlpha is not the Timelock admin anymore.
     );
 
-    // Pass the new proposal
-    (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
-    vm.roll(_startBlock + 1);
-    for (uint256 _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
-      governorAlpha.castVote(_newProposalId, true);
-    }
-    vm.roll(_endBlock + 1);
-
-    // Attempt to queue the new proposal, which should now fail.
-    vm.expectRevert("Timelock::queueTransaction: Call must come from admin.");
-    governorAlpha.queue(_newProposalId);
+    // Ensure no tokens have been transferred from the timelock to the receiver.
+    assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance);
+    assertEq(_token.balanceOf(_receiver), _receiverTokenBalance);
   }
 }
 
