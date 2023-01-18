@@ -81,6 +81,16 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
 
   //--------------- HELPERS ---------------//
 
+  function _assumeReceiver(address _receiver) internal {
+    // We don't want the receiver to be the Timelock, as that would make our
+    // assertions less meaningful -- most of our tests want to confirm that
+    // proposals can cause tokens to be sent *from* the timelock to somewhere
+    // else. We also can't have the receiver be the zero address because GTC
+    // blocks transfers to the zero address -- see line 546:
+    // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
+    vm.assume(_receiver != TIMELOCK && _receiver != address(0));
+  }
+
   function _randomERC20Token(uint256 _seed) internal view returns (IERC20 _token) {
     if (_seed % 3 == 0) _token = IERC20(address(gtcToken));
     if (_seed % 3 == 1) _token = usdcToken;
@@ -259,38 +269,37 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 }
 
 contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelper {
-  function setUp() public override {
-    GitcoinGovernorProposalTestHelper.setUp();
-  }
-
-  function testFuzz_OldGovernorSendsGTCAfterProposalIsDefeated(
-    uint256 _gtcAmount,
-    address _gtcReceiver
+  function testFuzz_OldGovernorSendsTokenAfterProposalIsDefeated(
+    uint256 _amount,
+    address _receiver,
+    uint256 _seed
   ) public {
-    vm.assume(_gtcReceiver != TIMELOCK && _gtcReceiver != address(0x0));
-    uint256 _timelockGtcBalance = gtcToken.balanceOf(TIMELOCK);
+    _assumeReceiver(_receiver);
+    IERC20 _token = _randomERC20Token(_seed);
+
+    uint256 _receiverTokenBalance = _token.balanceOf(_receiver);
+    uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
     // bound by the number of tokens the timelock currently controls
-    _gtcAmount = bound(_gtcAmount, 0, _timelockGtcBalance);
-    uint256 _initialGtcBalance = gtcToken.balanceOf(_gtcReceiver);
+    _amount = bound(_amount, 0, _timelockTokenBalance);
 
     // Defeat the proposal to upgrade the Governor
     _defeatUpgradeProposal();
 
-    // Craft a new proposal to send GTC
+    // Craft a new proposal to send the token.
     address[] memory _targets = new address[](1);
     uint256[] memory _values = new uint256[](1);
     string[] memory _signatures = new string [](1);
     bytes[] memory _calldatas = new bytes[](1);
 
-    _targets[0] = GTC_TOKEN;
+    _targets[0] = address(_token);
     _values[0] = 0;
     _signatures[0] = "transfer(address,uint256)";
-    _calldatas[0] = abi.encode(_gtcReceiver, _gtcAmount);
+    _calldatas[0] = abi.encode(_receiver, _amount);
 
     // Submit the new proposal
     vm.prank(PROPOSER);
     uint256 _newProposalId = governorAlpha.propose(
-      _targets, _values, _signatures, _calldatas, "Transfer some GTC from the old Governor"
+      _targets, _values, _signatures, _calldatas, "Transfer tokens with old Governor"
     );
 
     // Pass and execute the new proposal
@@ -308,116 +317,44 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     governorAlpha.execute(_newProposalId);
 
     // Ensure the new proposal is now executed
-    uint8 _state = governorAlpha.state(_newProposalId);
-    assertEq(_state, EXECUTED);
+    assertEq(governorAlpha.state(_newProposalId), EXECUTED);
 
     // Ensure the tokens have been transferred from the timelock to the receiver
-    assertEq(gtcToken.balanceOf(TIMELOCK), _timelockGtcBalance - _gtcAmount);
-    assertEq(gtcToken.balanceOf(_gtcReceiver), _initialGtcBalance + _gtcAmount);
+    assertEq(_token.balanceOf(TIMELOCK), _timelockTokenBalance - _amount);
+    assertEq(_token.balanceOf(_receiver), _receiverTokenBalance + _amount);
   }
 
-  function testFuzz_OldGovernorSendsVariousTokensAfterProposalIsDefeated(
-    uint256 _usdcAmount,
-    address _usdcReceiver,
-    uint256 _radAmount,
-    address _radReceiver
+  function testFuzz_OldGovernorCanNotSendTokensAfterUpgradeCompletes(
+    uint256 _amount,
+    address _receiver,
+    uint256 _seed
   ) public {
-    vm.assume(
-      _usdcReceiver != TIMELOCK && _usdcReceiver != address(0x0) && _radReceiver != TIMELOCK
-        && _radReceiver != address(0x0)
-    );
+    _assumeReceiver(_receiver);
+    IERC20 _token = _randomERC20Token(_seed);
 
-    uint256 _timelockUsdcBalance = usdcToken.balanceOf(TIMELOCK);
-    uint256 _timelockRadBalance = radToken.balanceOf(TIMELOCK);
-
+    uint256 _receiverTokenBalance = _token.balanceOf(_receiver);
+    uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
     // bound by the number of tokens the timelock currently controls
-    _usdcAmount = bound(_usdcAmount, 0, _timelockUsdcBalance);
-    _radAmount = bound(_radAmount, 0, _timelockRadBalance);
-
-    // record receivers initial balances
-    uint256 _initialUsdcBalance = usdcToken.balanceOf(_usdcReceiver);
-    uint256 _initialRadBalance = radToken.balanceOf(_radReceiver);
-
-    // Defeat the proposal to upgrade the Governor
-    _defeatUpgradeProposal();
-
-    // Craft a new proposal to send amounts of all three tokens
-    address[] memory _targets = new address[](2);
-    uint256[] memory _values = new uint256[](2);
-    string[] memory _signatures = new string [](2);
-    bytes[] memory _calldatas = new bytes[](2);
-
-    _targets[0] = USDC_ADDRESS;
-    _values[0] = 0;
-    _signatures[0] = "transfer(address,uint256)";
-    _calldatas[0] = abi.encode(_usdcReceiver, _usdcAmount);
-
-    _targets[1] = RAD_ADDRESS;
-    _values[1] = 0;
-    _signatures[1] = "transfer(address,uint256)";
-    _calldatas[1] = abi.encode(_radReceiver, _radAmount);
-
-    // Submit the new proposal
-    vm.prank(PROPOSER);
-    uint256 _newProposalId = governorAlpha.propose(
-      _targets, _values, _signatures, _calldatas, "Transfer some tokens from the old Governor"
-    );
-
-    // Pass and execute the new proposal
-    {
-      // separate scope to avoid stack to deep
-      (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
-      vm.roll(_startBlock + 1);
-      for (uint256 _index = 0; _index < delegates.length; _index++) {
-        vm.prank(delegates[_index]);
-        governorAlpha.castVote(_newProposalId, true);
-      }
-      vm.roll(_endBlock + 1);
-      governorAlpha.queue(_newProposalId);
-      vm.roll(block.number + 1);
-      (,, uint256 _eta,,,,,,) = governorAlpha.proposals(_newProposalId);
-      vm.warp(_eta + 1);
-      governorAlpha.execute(_newProposalId);
-
-      // Ensure the new proposal is now executed
-      uint8 _state = governorAlpha.state(_newProposalId);
-      assertEq(_state, EXECUTED);
-    }
-
-    // Ensure token balances have all been updated
-    assertEq(usdcToken.balanceOf(TIMELOCK), _timelockUsdcBalance - _usdcAmount);
-    assertEq(usdcToken.balanceOf(_usdcReceiver), _initialUsdcBalance + _usdcAmount);
-    assertEq(radToken.balanceOf(TIMELOCK), _timelockRadBalance - _radAmount);
-    assertEq(radToken.balanceOf(_radReceiver), _initialRadBalance + _radAmount);
-  }
-
-  function testFuzz_OldGovernorCanNotSendGTCAfterUpgradeCompletes(
-    uint256 _gtcAmount,
-    address _gtcReceiver
-  ) public {
-    vm.assume(_gtcReceiver != TIMELOCK && _gtcReceiver != address(0x0));
-    uint256 _timelockGtcBalance = gtcToken.balanceOf(TIMELOCK);
-    // bound by the number of tokens the timelock currently controls
-    _gtcAmount = bound(_gtcAmount, 0, _timelockGtcBalance);
+    _amount = bound(_amount, 0, _timelockTokenBalance);
 
     // Pass and execute the proposal to upgrade the Governor
     _upgradeToBravoGovernor();
 
-    // Craft a new proposal to send GTC
+    // Craft a new proposal to send the token.
     address[] memory _targets = new address[](1);
     uint256[] memory _values = new uint256[](1);
     string[] memory _signatures = new string [](1);
     bytes[] memory _calldatas = new bytes[](1);
 
-    _targets[0] = GTC_TOKEN;
+    _targets[0] = address(_token);
     _values[0] = 0;
     _signatures[0] = "transfer(address,uint256)";
-    _calldatas[0] = abi.encode(_gtcReceiver, _gtcAmount);
+    _calldatas[0] = abi.encode(_receiver, _amount);
 
-    // Submit the new proposal to Governor ALPHA, which is now deprecated
+    // Submit the new proposal
     vm.prank(PROPOSER);
     uint256 _newProposalId = governorAlpha.propose(
-      _targets, _values, _signatures, _calldatas, "Transfer some GTC from the old Governor"
+      _targets, _values, _signatures, _calldatas, "Transfer tokens with old Governor"
     );
 
     // Pass the new proposal
@@ -429,7 +366,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     }
     vm.roll(_endBlock + 1);
 
-    // Attempt to queue the new proposal, which should now fail
+    // Attempt to queue the new proposal, which should now fail.
     vm.expectRevert("Timelock::queueTransaction: Call must come from admin.");
     governorAlpha.queue(_newProposalId);
   }
@@ -440,16 +377,6 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   uint8 constant AGAINST = 0;
   uint8 constant FOR = 1;
   uint8 constant ABSTAIN = 2;
-
-  function assumeReceiver(address _receiver) public {
-    // We don't want the receiver to be the Timelock, as that would make our
-    // assertions less meaningful -- most of our tests want to confirm that
-    // proposals can cause tokens to be sent *from* the timelock to somewhere
-    // else. We also can't have the receiver be the zero address because GTC
-    // blocks transfers to the zero address -- see line 546:
-    // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
-    vm.assume(_receiver != TIMELOCK && _receiver != address(0x0));
-  }
 
   function buildProposalData(string memory _signature, bytes memory _calldata)
     public
@@ -608,7 +535,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   function testFuzz_NewGovernorCanReceiveNewProposal(uint256 _gtcAmount, address _gtcReceiver)
     public
   {
-    assumeReceiver(_gtcReceiver);
+    _assumeReceiver(_gtcReceiver);
     _upgradeToBravoGovernor();
     (uint256 _newProposalId,,,,) =
       submitTokenSendProposal(address(gtcToken), _gtcAmount, _gtcReceiver);
@@ -622,7 +549,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     public
   {
     IERC20 _token = _randomERC20Token(_seed);
-    assumeReceiver(_receiver);
+    _assumeReceiver(_receiver);
 
     _upgradeToBravoGovernor();
 
@@ -652,7 +579,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     uint256 _seed
   ) public {
     IERC20 _token = _randomERC20Token(_seed);
-    assumeReceiver(_receiver);
+    _assumeReceiver(_receiver);
     uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
 
     // bound by the number of tokens the timelock currently controls
@@ -685,7 +612,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     uint256 _amount,
     address _receiver
   ) public {
-    assumeReceiver(_receiver);
+    _assumeReceiver(_receiver);
     vm.deal(TIMELOCK, _amount);
     uint256 _timelockETHBalance = TIMELOCK.balance;
     uint256 _receiverETHBalance = _receiver.balance;
@@ -718,7 +645,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     uint256 _seed
   ) public {
     IERC20 _token = _randomERC20Token(_seed);
-    assumeReceiver(_receiver);
+    _assumeReceiver(_receiver);
 
     vm.deal(TIMELOCK, _amountETH);
     uint256 _timelockETHBalance = TIMELOCK.balance;
@@ -768,7 +695,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     uint256 _amount,
     address _receiver
   ) public {
-    assumeReceiver(_receiver);
+    _assumeReceiver(_receiver);
     vm.deal(TIMELOCK, _amount);
     uint256 _timelockETHBalance = TIMELOCK.balance;
     uint256 _receiverETHBalance = _receiver.balance;
@@ -870,7 +797,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     uint256 _seed
   ) public {
     IERC20 _token = _randomERC20Token(_seed);
-    assumeReceiver(_receiver);
+    _assumeReceiver(_receiver);
     uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
 
     // bound by the number of tokens the timelock currently controls
@@ -939,7 +866,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     uint256 _seed
   ) public {
     IERC20 _token = _randomERC20Token(_seed);
-    assumeReceiver(_receiver);
+    _assumeReceiver(_receiver);
     uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
 
     // bound by the number of tokens the timelock currently controls
@@ -1010,7 +937,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   ) public {
     NewGovernorUnaffectedByVotesOnOldGovernorVars memory _vars;
     IERC20 _token = _randomERC20Token(_seed);
-    assumeReceiver(_receiver);
+    _assumeReceiver(_receiver);
 
     _upgradeToBravoGovernor();
 
