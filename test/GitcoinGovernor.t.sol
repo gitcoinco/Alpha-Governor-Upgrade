@@ -269,6 +269,113 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 }
 
 contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelper {
+  function testFuzz_OldGovernorSendsETHAfterProposalIsDefeated(
+    uint256 _amount,
+    address _receiver
+  ) public {
+    _assumeReceiver(_receiver);
+
+    // Counter-intuitively, the Governor must hold the ETH, not the Timelock.
+    // See the deployed GovernorAlpha, line 227:
+    //   https://etherscan.io/address/0xDbD27635A534A3d3169Ef0498beB56Fb9c937489#code
+    // The governor transfers ETH to the Timelock in the process of executing
+    // the proposal. The Timelock then just passes that ETH along.
+    vm.deal(address(governorAlpha), _amount);
+
+    uint256 _receiverETHBalance = _receiver.balance;
+    uint256 _governorETHBalance = address(governorAlpha).balance;
+
+    // Defeat the proposal to upgrade the Governor
+    _defeatUpgradeProposal();
+
+    // Create a new proposal to send the ETH.
+    address[] memory _targets = new address[](1);
+    uint256[] memory _values = new uint256[](1);
+    _targets[0] = _receiver;
+    _values[0] = _amount;
+
+    // Submit the new proposal
+    vm.prank(PROPOSER);
+    uint256 _newProposalId = governorAlpha.propose(
+      _targets,
+      _values,
+      (new string[](1)), // No signature needed for an ETH send.
+      (new bytes[](1)), // No calldata needed for an ETH send.
+      "Transfer ETH with old Governor"
+    );
+
+    // Pass and execute the new proposal
+    (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
+    vm.roll(_startBlock + 1);
+    for (uint256 _index = 0; _index < delegates.length; _index++) {
+      vm.prank(delegates[_index]);
+      governorAlpha.castVote(_newProposalId, true);
+    }
+    vm.roll(_endBlock + 1);
+    governorAlpha.queue(_newProposalId);
+    vm.roll(block.number + 1);
+    (,, uint256 _eta,,,,,,) = governorAlpha.proposals(_newProposalId);
+    vm.warp(_eta + 1);
+
+    governorAlpha.execute(_newProposalId);
+
+    // Ensure the new proposal is now executed
+    assertEq(governorAlpha.state(_newProposalId), EXECUTED);
+
+    // Ensure the ETH has been transferred to the receiver
+    assertEq(address(governorAlpha).balance, _governorETHBalance - _amount);
+    assertEq(_receiver.balance, _receiverETHBalance + _amount);
+  }
+
+  function testFuzz_OldGovernorCannotSendETHAfterProposalSucceeds(
+    uint256 _amount,
+    address _receiver
+  ) public {
+    _assumeReceiver(_receiver);
+
+    // Counter-intuitively, the Governor must hold the ETH, not the Timelock.
+    // See the deployed GovernorAlpha, line 227:
+    //   https://etherscan.io/address/0xDbD27635A534A3d3169Ef0498beB56Fb9c937489#code
+    // The governor transfers ETH to the Timelock in the process of executing
+    // the proposal. The Timelock then just passes that ETH along.
+    vm.deal(address(governorAlpha), _amount);
+
+    uint256 _receiverETHBalance = _receiver.balance;
+    uint256 _governorETHBalance = address(governorAlpha).balance;
+
+    // Pass and execute the proposal to upgrade the Governor
+    _upgradeToBravoGovernor();
+
+    // Create a new proposal to send the ETH.
+    address[] memory _targets = new address[](1);
+    uint256[] memory _values = new uint256[](1);
+    _targets[0] = _receiver;
+    _values[0] = _amount;
+
+    // Submit the new proposal
+    vm.prank(PROPOSER);
+    uint256 _newProposalId = governorAlpha.propose(
+      _targets,
+      _values,
+      (new string[](1)), // No signature needed for an ETH send.
+      (new bytes[](1)), // No calldata needed for an ETH send.
+      "Transfer ETH with old Governor"
+    );
+
+    // Pass the new proposal
+    (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
+    vm.roll(_startBlock + 1);
+    for (uint256 _index = 0; _index < delegates.length; _index++) {
+      vm.prank(delegates[_index]);
+      governorAlpha.castVote(_newProposalId, true);
+    }
+    vm.roll(_endBlock + 1);
+
+    // Attempt to queue the new proposal, which should now fail.
+    vm.expectRevert("Timelock::queueTransaction: Call must come from admin.");
+    governorAlpha.queue(_newProposalId);
+  }
+
   function testFuzz_OldGovernorSendsTokenAfterProposalIsDefeated(
     uint256 _amount,
     address _receiver,
