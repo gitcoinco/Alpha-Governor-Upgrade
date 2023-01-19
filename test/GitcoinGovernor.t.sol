@@ -88,7 +88,8 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
     // else. We also can't have the receiver be the zero address because GTC
     // blocks transfers to the zero address -- see line 546:
     // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
-    vm.assume(_receiver != TIMELOCK && _receiver != address(0));
+    vm.assume(_receiver != TIMELOCK && _receiver > address(0));
+    assumeNoPrecompiles(_receiver);
   }
 
   function _randomERC20Token(uint256 _seed) internal view returns (IERC20 _token) {
