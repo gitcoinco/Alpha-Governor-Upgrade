@@ -1119,20 +1119,21 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
   }
 
   function testFuzz_GovernorBravoSupportsCastingSplitVotes(
-    uint256 _amount,
-    address _receiver,
-    uint256 _seed
+    uint256 _forVotePercentage,
+    uint256 _againstVotePercentage,
+    uint256 _abstainVotePercentage
   ) public {
-    IERC20 _token = _randomERC20Token(_seed);
-    _assumeReceiver(_receiver);
-
-    // Bound by the number of tokens the timelock currently controls.
-    uint256 _timelockTokenBalance = _token.balanceOf(TIMELOCK);
-    _amount = bound(_amount, 0, _timelockTokenBalance);
+    _forVotePercentage = bound(_forVotePercentage, 0.0e18, 1.0e18);
+    _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
+    _abstainVotePercentage = bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
 
     (
       uint256 _newProposalId,,,,
-    ) = _submitTokenSendProposalToGovernorBravo(address(_token), _amount, _receiver);
+    ) = _submitTokenSendProposalToGovernorBravo(
+      address(usdcToken),
+      usdcToken.balanceOf(TIMELOCK),
+      makeAddr("receiver for testFuzz_GovernorBravoSupportsCastingSplitVotes")
+    );
 
     _jumpToActiveProposal(_newProposalId);
 
@@ -1145,9 +1146,9 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       address _voter = delegates[_i];
       uint256 _weight = gtcToken.getPriorVotes(_voter, _votingSnapshot);
 
-      uint128 _forVotes = uint128(_weight.mulWadDown(0.75e18));
-      uint128 _againstVotes = uint128(_weight.mulWadDown(0.20e18));
-      uint128 _abstainVotes = uint128(_weight.mulWadDown(0.05e18));
+      uint128 _forVotes = uint128(_weight.mulWadDown(_forVotePercentage));
+      uint128 _againstVotes = uint128(_weight.mulWadDown(_againstVotePercentage));
+      uint128 _abstainVotes = uint128(_weight.mulWadDown(_abstainVotePercentage));
       bytes memory _fractionalizedVotes = abi.encodePacked(_forVotes, _againstVotes, _abstainVotes);
       _totalForVotes += _forVotes;
       _totalAgainstVotes += _againstVotes;
