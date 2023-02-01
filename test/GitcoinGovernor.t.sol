@@ -1188,8 +1188,95 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     assertEq(_totalAbstainVotes, _abstainVotes);
   }
 
+  struct VoteData {
+    uint128 forVotes;
+    uint128 againstVotes;
+    uint128 abstainVotes;
+  }
+
+  function testFuzz_GovernorBravoSupportsCastingPartialSplitVotes(
+    uint256 _firstVotePercentage,
+    uint256 _forVotePercentage,
+    uint256 _againstVotePercentage,
+    uint256 _abstainVotePercentage
+  ) public {
+    // This is the % of total weight that will be cast the first time.
+    _firstVotePercentage = bound(_firstVotePercentage, 0.1e18, 0.9e18);
+
+    _forVotePercentage = bound(_forVotePercentage, 0.0e18, 1.0e18);
+    _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
+    _abstainVotePercentage = bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
+
+    (
+      uint256 _newProposalId,,,,
+    ) = _submitTokenSendProposalToGovernorBravo(
+      address(radToken),
+      radToken.balanceOf(TIMELOCK),
+      makeAddr("receiver for testFuzz_GovernorBravoSupportsCastingPartialSplitVotes")
+    );
+
+    _jumpToActiveProposal(_newProposalId);
+
+    uint256 _weight = gtcToken.getPriorVotes(
+      PROPOSER, // The proposer is also the top delegate.
+      governorBravo.proposalSnapshot(_newProposalId)
+    );
+
+    // The accepted support types for Bravo fall within [0,2].
+    uint8 _supportTypeDoesntMatterForFlexVoting = uint8(2);
+
+    // Cast partial vote the first time.
+    VoteData memory _firstVote;
+    uint256 _voteWeight = _weight.mulWadDown(_firstVotePercentage);
+    _firstVote.forVotes = uint128(_voteWeight.mulWadDown(_forVotePercentage));
+    _firstVote.againstVotes = uint128(_voteWeight.mulWadDown(_againstVotePercentage));
+    _firstVote.abstainVotes = uint128(_voteWeight.mulWadDown(_abstainVotePercentage));
+    vm.prank(PROPOSER);
+    governorBravo.castVoteWithReasonAndParams(
+      _newProposalId,
+      _supportTypeDoesntMatterForFlexVoting,
+      "My first vote",
+      abi.encodePacked(_firstVote.forVotes, _firstVote.againstVotes, _firstVote.abstainVotes)
+    );
+
+    ( // Ensure the votes were recorded.
+      uint256 _againstVotesCast,
+      uint256 _forVotesCast,
+      uint256 _abstainVotesCast
+    ) = governorBravo.proposalVotes(_newProposalId);
+    assertEq(_firstVote.forVotes, _forVotesCast);
+    assertEq(_firstVote.againstVotes, _againstVotesCast);
+    assertEq(_firstVote.abstainVotes, _abstainVotesCast);
+
+    // Cast partial vote the second time.
+    VoteData memory _secondVote;
+    _voteWeight = _weight.mulWadDown(1e18 - _firstVotePercentage);
+    _secondVote.forVotes = uint128(_voteWeight.mulWadDown(_forVotePercentage));
+    _secondVote.againstVotes = uint128(_voteWeight.mulWadDown(_againstVotePercentage));
+    _secondVote.abstainVotes = uint128(_voteWeight.mulWadDown(_abstainVotePercentage));
+    vm.prank(PROPOSER);
+    governorBravo.castVoteWithReasonAndParams(
+      _newProposalId,
+      _supportTypeDoesntMatterForFlexVoting,
+      "My second vote",
+      abi.encodePacked(
+        _secondVote.forVotes,
+        _secondVote.againstVotes,
+        _secondVote.abstainVotes
+      )
+    );
+
+    ( // Ensure the new votes were recorded.
+      _againstVotesCast,
+      _forVotesCast,
+      _abstainVotesCast
+    ) = governorBravo.proposalVotes(_newProposalId);
+    assertEq(_firstVote.forVotes + _secondVote.forVotes, _forVotesCast);
+    assertEq(_firstVote.againstVotes + _secondVote.againstVotes, _againstVotesCast);
+    assertEq(_firstVote.abstainVotes + _secondVote.abstainVotes, _abstainVotesCast);
+  }
+
   // TODO
-  // bravo governor supports partial split votes
   // bravo governor supports split votes + nominal votes on the same proposal
   // proposal can pass with split votes
   // proposal can fail with split votes
