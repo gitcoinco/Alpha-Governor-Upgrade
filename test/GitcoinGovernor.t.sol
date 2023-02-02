@@ -1132,7 +1132,6 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     );
 
     _jumpToActiveProposal(newProposalId);
-
   }
 
   function testFuzz_GovernorBravoSupportsCastingSplitVotes(
@@ -1291,7 +1290,52 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     assertEq(_firstVote.abstainVotes + _secondVote.abstainVotes, _abstainVotesCast);
   }
 
-  // TODO
-  // proposal can pass with split votes
-  // proposal can fail with split votes
+  function testFuzz_ProposalsCanBePassedWithSplitVotes(
+    uint256 _forVotePercentage,
+    uint256 _againstVotePercentage,
+    uint256 _abstainVotePercentage
+  ) public {
+    _forVotePercentage = bound(_forVotePercentage, 0.0e18, 1.0e18);
+    _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
+    _abstainVotePercentage = bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
+
+    uint256 _weight = gtcToken.getPriorVotes(
+      PROPOSER, // The proposer is also the top delegate.
+      governorBravo.proposalSnapshot(newProposalId)
+    );
+
+    uint128 _forVotes = uint128(_weight.mulWadDown(_forVotePercentage));
+    uint128 _againstVotes = uint128(_weight.mulWadDown(_againstVotePercentage));
+    uint128 _abstainVotes = uint128(_weight.mulWadDown(_abstainVotePercentage));
+
+    // The accepted support types for Bravo fall within [0,2].
+    uint8 _supportTypeDoesntMatterForFlexVoting = uint8(2);
+
+    vm.prank(PROPOSER);
+    governorBravo.castVoteWithReasonAndParams(
+      newProposalId,
+      _supportTypeDoesntMatterForFlexVoting,
+      "My vote",
+      abi.encodePacked(_forVotes, _againstVotes, _abstainVotes)
+    );
+
+    ( // Ensure the votes were split.
+      uint256 _actualAgainstVotes,
+      uint256 _actualForVotes,
+      uint256 _actualAbstainVotes
+    ) = governorBravo.proposalVotes(newProposalId);
+    assertEq(_forVotes, _actualForVotes);
+    assertEq(_againstVotes, _actualAgainstVotes);
+    assertEq(_abstainVotes, _actualAbstainVotes);
+
+    _jumpToVotingComplete(newProposalId);
+
+    IGovernor.ProposalState _state = governorBravo.state(newProposalId);
+
+    if (_forVotes >= governorBravo.quorum(block.number) && _forVotes > _againstVotes) {
+      assertEq(_state, IGovernor.ProposalState.Succeeded);
+    } else {
+      assertEq(_state, IGovernor.ProposalState.Defeated);
+    }
+  }
 }
