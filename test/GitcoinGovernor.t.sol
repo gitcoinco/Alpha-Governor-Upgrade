@@ -1179,13 +1179,13 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
 
     // Ensure the votes were split.
     (
-      uint256 _againstVotes,
-      uint256 _forVotes,
-      uint256 _abstainVotes
+      uint256 _actualAgainstVotes,
+      uint256 _actualForVotes,
+      uint256 _actualAbstainVotes
     ) = governorBravo.proposalVotes(_newProposalId);
-    assertEq(_totalForVotes, _forVotes);
-    assertEq(_totalAgainstVotes, _againstVotes);
-    assertEq(_totalAbstainVotes, _abstainVotes);
+    assertEq(_totalForVotes, _actualForVotes);
+    assertEq(_totalAgainstVotes, _actualAgainstVotes);
+    assertEq(_totalAbstainVotes, _actualAbstainVotes);
   }
 
   struct VoteData {
