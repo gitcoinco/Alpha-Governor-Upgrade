@@ -45,7 +45,7 @@ contract GitcoinGovernorDeployTest is GitcoinGovernorTestHelper {
     assertEq(governorBravo.proposalThreshold(), INITIAL_PROPOSAL_THRESHOLD);
     assertEq(governorBravo.quorum(_blockNumber), QUORUM);
     assertEq(governorBravo.timelock(), TIMELOCK);
-    assertEq(governorBravo.COUNTING_MODE(), "support=bravo&quorum=for,abstain");
+    assertEq(governorBravo.COUNTING_MODE(), "support=bravo&quorum=bravo&params=fractional");
   }
 }
 
