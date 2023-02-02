@@ -1104,6 +1104,9 @@ library FixedPointMathLib {
 contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalHelper{
   using FixedPointMathLib for uint256;
 
+  // Store the id of a new proposal unrelated to governor upgrade.
+  uint256 newProposalId;
+
   event VoteCastWithParams(
     address indexed voter,
     uint256 proposalId,
@@ -1113,9 +1116,23 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     bytes params
   );
 
-  function setUp() public virtual override(GitcoinGovernorProposalTestHelper, GitcoinGovernorTestHelper) {
+  function setUp()
+    public
+    virtual
+    override(GitcoinGovernorProposalTestHelper, GitcoinGovernorTestHelper)
+  {
     GitcoinGovernorProposalTestHelper.setUp();
+
     _upgradeToBravoGovernor();
+
+    (newProposalId,,,,) = _submitTokenSendProposalToGovernorBravo(
+      address(usdcToken),
+      usdcToken.balanceOf(TIMELOCK),
+      makeAddr("receiver for FlexVoting tests")
+    );
+
+    _jumpToActiveProposal(newProposalId);
+
   }
 
   function testFuzz_GovernorBravoSupportsCastingSplitVotes(
@@ -1127,18 +1144,8 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
     _abstainVotePercentage = bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
 
-    (
-      uint256 _newProposalId,,,,
-    ) = _submitTokenSendProposalToGovernorBravo(
-      address(usdcToken),
-      usdcToken.balanceOf(TIMELOCK),
-      makeAddr("receiver for testFuzz_GovernorBravoSupportsCastingSplitVotes")
-    );
-
-    _jumpToActiveProposal(_newProposalId);
-
     // Attempt to split vote weight on this new proposal.
-    uint256 _votingSnapshot = governorBravo.proposalSnapshot(_newProposalId);
+    uint256 _votingSnapshot = governorBravo.proposalSnapshot(newProposalId);
     uint256 _totalForVotes;
     uint256 _totalAgainstVotes;
     uint256 _totalAbstainVotes;
@@ -1160,7 +1167,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       vm.expectEmit(true, true, true, true);
       emit VoteCastWithParams(
         _voter,
-        _newProposalId,
+        newProposalId,
         _supportTypeDoesntMatterForFlexVoting, // Really: support type is ignored.
         _weight,
         "I do what I want",
@@ -1170,7 +1177,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       // This call should succeed.
       vm.prank(_voter);
       governorBravo.castVoteWithReasonAndParams(
-        _newProposalId,
+        newProposalId,
         _supportTypeDoesntMatterForFlexVoting,
         "I do what I want",
         _fractionalizedVotes
@@ -1182,7 +1189,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       uint256 _actualAgainstVotes,
       uint256 _actualForVotes,
       uint256 _actualAbstainVotes
-    ) = governorBravo.proposalVotes(_newProposalId);
+    ) = governorBravo.proposalVotes(newProposalId);
     assertEq(_totalForVotes, _actualForVotes);
     assertEq(_totalAgainstVotes, _actualAgainstVotes);
     assertEq(_totalAbstainVotes, _actualAbstainVotes);
@@ -1207,19 +1214,9 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
     _abstainVotePercentage = bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
 
-    (
-      uint256 _newProposalId,,,,
-    ) = _submitTokenSendProposalToGovernorBravo(
-      address(radToken),
-      radToken.balanceOf(TIMELOCK),
-      makeAddr("receiver for testFuzz_GovernorBravoSupportsCastingPartialSplitVotes")
-    );
-
-    _jumpToActiveProposal(_newProposalId);
-
     uint256 _weight = gtcToken.getPriorVotes(
       PROPOSER, // The proposer is also the top delegate.
-      governorBravo.proposalSnapshot(_newProposalId)
+      governorBravo.proposalSnapshot(newProposalId)
     );
 
     // The accepted support types for Bravo fall within [0,2].
@@ -1233,7 +1230,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     _firstVote.abstainVotes = uint128(_voteWeight.mulWadDown(_abstainVotePercentage));
     vm.prank(PROPOSER);
     governorBravo.castVoteWithReasonAndParams(
-      _newProposalId,
+      newProposalId,
       _supportTypeDoesntMatterForFlexVoting,
       "My first vote",
       abi.encodePacked(_firstVote.forVotes, _firstVote.againstVotes, _firstVote.abstainVotes)
@@ -1243,7 +1240,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       uint256 _againstVotesCast,
       uint256 _forVotesCast,
       uint256 _abstainVotesCast
-    ) = governorBravo.proposalVotes(_newProposalId);
+    ) = governorBravo.proposalVotes(newProposalId);
     assertEq(_firstVote.forVotes, _forVotesCast);
     assertEq(_firstVote.againstVotes, _againstVotesCast);
     assertEq(_firstVote.abstainVotes, _abstainVotesCast);
@@ -1256,7 +1253,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     _secondVote.abstainVotes = uint128(_voteWeight.mulWadDown(_abstainVotePercentage));
     vm.prank(PROPOSER);
     governorBravo.castVoteWithReasonAndParams(
-      _newProposalId,
+      newProposalId,
       _supportTypeDoesntMatterForFlexVoting,
       "My second vote",
       abi.encodePacked(
@@ -1270,14 +1267,31 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       _againstVotesCast,
       _forVotesCast,
       _abstainVotesCast
-    ) = governorBravo.proposalVotes(_newProposalId);
+    ) = governorBravo.proposalVotes(newProposalId);
     assertEq(_firstVote.forVotes + _secondVote.forVotes, _forVotesCast);
+    assertEq(_firstVote.againstVotes + _secondVote.againstVotes, _againstVotesCast);
+    assertEq(_firstVote.abstainVotes + _secondVote.abstainVotes, _abstainVotesCast);
+
+    // Confirm nominal votes can co-exist with partial+fractional votes by
+    // voting with the second largest delegate.
+    uint256 _nominalVoterWeight = gtcToken.getPriorVotes(
+      delegates[1],
+      governorBravo.proposalSnapshot(newProposalId)
+    );
+    vm.prank(delegates[1]);
+    governorBravo.castVote(newProposalId, FOR);
+
+    ( // Ensure the nominal votes were recorded.
+      _againstVotesCast,
+      _forVotesCast,
+      _abstainVotesCast
+    ) = governorBravo.proposalVotes(newProposalId);
+    assertEq(_firstVote.forVotes + _secondVote.forVotes + _nominalVoterWeight, _forVotesCast);
     assertEq(_firstVote.againstVotes + _secondVote.againstVotes, _againstVotesCast);
     assertEq(_firstVote.abstainVotes + _secondVote.abstainVotes, _abstainVotesCast);
   }
 
   // TODO
-  // bravo governor supports split votes + nominal votes on the same proposal
   // proposal can pass with split votes
   // proposal can fail with split votes
 }
