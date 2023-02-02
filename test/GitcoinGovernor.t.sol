@@ -530,7 +530,11 @@ contract GovernorBravoProposalHelper is GitcoinGovernorTestHelper {
     _description = "Transfer some tokens from the new Governor";
   }
 
-  function _submitTokenSendProposalToGovernorBravo(address _token, uint256 _amount, address _receiver)
+  function _submitTokenSendProposalToGovernorBravo(
+    address _token,
+    uint256 _amount,
+    address _receiver
+  )
     internal
     returns (
       uint256 _newProposalId,
@@ -550,7 +554,6 @@ contract GovernorBravoProposalHelper is GitcoinGovernorTestHelper {
     // Ensure proposal is in the expected state
     IGovernor.ProposalState _state = governorBravo.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Pending);
-
   }
 
   // Take a proposal through its full lifecycle, from proposing it, to voting on
@@ -626,8 +629,15 @@ contract GovernorBravoProposalHelper is GitcoinGovernorTestHelper {
   }
 }
 
-contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper, GovernorBravoProposalHelper{
-  function setUp() public virtual override(GitcoinGovernorProposalTestHelper, GitcoinGovernorTestHelper) {
+contract NewGitcoinGovernorProposalTest is
+  GitcoinGovernorProposalTestHelper,
+  GovernorBravoProposalHelper
+{
+  function setUp()
+    public
+    virtual
+    override(GitcoinGovernorProposalTestHelper, GitcoinGovernorTestHelper)
+  {
     GitcoinGovernorProposalTestHelper.setUp();
   }
 
@@ -1072,8 +1082,8 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper, Go
   }
 }
 
-// Copied from Solmate
 // forgefmt: disable-start
+// Copied from Solmate
 library FixedPointMathLib {
   uint256 internal constant MAX_UINT256 = 2**256 - 1;
 
@@ -1101,7 +1111,7 @@ library FixedPointMathLib {
 }
 // forgefmt: disable-end
 
-contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalHelper{
+contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalHelper {
   using FixedPointMathLib for uint256;
 
   // Store the id of a new proposal unrelated to governor upgrade.
@@ -1126,9 +1136,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     _upgradeToBravoGovernor();
 
     (newProposalId,,,,) = _submitTokenSendProposalToGovernorBravo(
-      address(usdcToken),
-      usdcToken.balanceOf(TIMELOCK),
-      makeAddr("receiver for FlexVoting tests")
+      address(usdcToken), usdcToken.balanceOf(TIMELOCK), makeAddr("receiver for FlexVoting tests")
     );
 
     _jumpToActiveProposal(newProposalId);
@@ -1141,7 +1149,8 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
   ) public {
     _forVotePercentage = bound(_forVotePercentage, 0.0e18, 1.0e18);
     _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
-    _abstainVotePercentage = bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
+    _abstainVotePercentage =
+      bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
 
     // Attempt to split vote weight on this new proposal.
     uint256 _votingSnapshot = governorBravo.proposalSnapshot(newProposalId);
@@ -1171,7 +1180,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
         _weight,
         "I do what I want",
         _fractionalizedVotes
-      );
+        );
 
       // This call should succeed.
       vm.prank(_voter);
@@ -1184,11 +1193,8 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     }
 
     // Ensure the votes were split.
-    (
-      uint256 _actualAgainstVotes,
-      uint256 _actualForVotes,
-      uint256 _actualAbstainVotes
-    ) = governorBravo.proposalVotes(newProposalId);
+    (uint256 _actualAgainstVotes, uint256 _actualForVotes, uint256 _actualAbstainVotes) =
+      governorBravo.proposalVotes(newProposalId);
     assertEq(_totalForVotes, _actualForVotes);
     assertEq(_totalAgainstVotes, _actualAgainstVotes);
     assertEq(_totalAbstainVotes, _actualAbstainVotes);
@@ -1211,7 +1217,8 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
 
     _forVotePercentage = bound(_forVotePercentage, 0.0e18, 1.0e18);
     _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
-    _abstainVotePercentage = bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
+    _abstainVotePercentage =
+      bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
 
     uint256 _weight = gtcToken.getPriorVotes(
       PROPOSER, // The proposer is also the top delegate.
@@ -1236,10 +1243,8 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     );
 
     ( // Ensure the votes were recorded.
-      uint256 _againstVotesCast,
-      uint256 _forVotesCast,
-      uint256 _abstainVotesCast
-    ) = governorBravo.proposalVotes(newProposalId);
+    uint256 _againstVotesCast, uint256 _forVotesCast, uint256 _abstainVotesCast) =
+      governorBravo.proposalVotes(newProposalId);
     assertEq(_firstVote.forVotes, _forVotesCast);
     assertEq(_firstVote.againstVotes, _againstVotesCast);
     assertEq(_firstVote.abstainVotes, _abstainVotesCast);
@@ -1255,36 +1260,26 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       newProposalId,
       _supportTypeDoesntMatterForFlexVoting,
       "My second vote",
-      abi.encodePacked(
-        _secondVote.forVotes,
-        _secondVote.againstVotes,
-        _secondVote.abstainVotes
-      )
+      abi.encodePacked(_secondVote.forVotes, _secondVote.againstVotes, _secondVote.abstainVotes)
     );
 
     ( // Ensure the new votes were recorded.
-      _againstVotesCast,
-      _forVotesCast,
-      _abstainVotesCast
-    ) = governorBravo.proposalVotes(newProposalId);
+    _againstVotesCast, _forVotesCast, _abstainVotesCast) =
+      governorBravo.proposalVotes(newProposalId);
     assertEq(_firstVote.forVotes + _secondVote.forVotes, _forVotesCast);
     assertEq(_firstVote.againstVotes + _secondVote.againstVotes, _againstVotesCast);
     assertEq(_firstVote.abstainVotes + _secondVote.abstainVotes, _abstainVotesCast);
 
     // Confirm nominal votes can co-exist with partial+fractional votes by
     // voting with the second largest delegate.
-    uint256 _nominalVoterWeight = gtcToken.getPriorVotes(
-      delegates[1],
-      governorBravo.proposalSnapshot(newProposalId)
-    );
+    uint256 _nominalVoterWeight =
+      gtcToken.getPriorVotes(delegates[1], governorBravo.proposalSnapshot(newProposalId));
     vm.prank(delegates[1]);
     governorBravo.castVote(newProposalId, FOR);
 
     ( // Ensure the nominal votes were recorded.
-      _againstVotesCast,
-      _forVotesCast,
-      _abstainVotesCast
-    ) = governorBravo.proposalVotes(newProposalId);
+    _againstVotesCast, _forVotesCast, _abstainVotesCast) =
+      governorBravo.proposalVotes(newProposalId);
     assertEq(_firstVote.forVotes + _secondVote.forVotes + _nominalVoterWeight, _forVotesCast);
     assertEq(_firstVote.againstVotes + _secondVote.againstVotes, _againstVotesCast);
     assertEq(_firstVote.abstainVotes + _secondVote.abstainVotes, _abstainVotesCast);
@@ -1297,7 +1292,8 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
   ) public {
     _forVotePercentage = bound(_forVotePercentage, 0.0e18, 1.0e18);
     _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
-    _abstainVotePercentage = bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
+    _abstainVotePercentage =
+      bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
 
     uint256 _weight = gtcToken.getPriorVotes(
       PROPOSER, // The proposer is also the top delegate.
@@ -1320,10 +1316,8 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     );
 
     ( // Ensure the votes were split.
-      uint256 _actualAgainstVotes,
-      uint256 _actualForVotes,
-      uint256 _actualAbstainVotes
-    ) = governorBravo.proposalVotes(newProposalId);
+    uint256 _actualAgainstVotes, uint256 _actualForVotes, uint256 _actualAbstainVotes) =
+      governorBravo.proposalVotes(newProposalId);
     assertEq(_forVotes, _actualForVotes);
     assertEq(_againstVotes, _actualAgainstVotes);
     assertEq(_abstainVotes, _actualAbstainVotes);
