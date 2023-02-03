@@ -7,3 +7,7 @@
 [submodule "lib/flexible-voting"]
 	path = lib/flexible-voting
 	url = https://github.com/ScopeLift/flexible-voting
+[submodule "lib/solmate"]
+	path = lib/solmate
+	url = https://github.com/transmissions11/solmate
+	branch = v7
