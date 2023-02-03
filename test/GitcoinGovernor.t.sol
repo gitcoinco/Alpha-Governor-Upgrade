@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import {IERC20} from "openzeppelin-contracts/interfaces/IERC20.sol";
 import {IGovernor} from "openzeppelin-contracts/governance/IGovernor.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {GitcoinGovernor, ICompoundTimelock} from "src/GitcoinGovernor.sol";
 import {DeployInput, DeployScript} from "script/Deploy.s.sol";
 import {IGovernorAlpha} from "src/interfaces/IGovernorAlpha.sol";
@@ -11,6 +12,8 @@ import {IGTC} from "src/interfaces/IGTC.sol";
 import {ProposeScript} from "script/Propose.s.sol";
 
 contract GitcoinGovernorTestHelper is Test, DeployInput {
+  using FixedPointMathLib for uint256;
+
   uint256 constant QUORUM = 2_500_000e18;
   address constant GTC_TOKEN = 0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F;
   address constant TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
@@ -1081,35 +1084,6 @@ contract NewGitcoinGovernorProposalTest is
     governorAlpha.queue(_vars.alphaProposalId);
   }
 }
-
-// forgefmt: disable-start
-// Copied from Solmate
-library FixedPointMathLib {
-  uint256 internal constant MAX_UINT256 = 2**256 - 1;
-
-  uint256 internal constant WAD = 1e18; // The scalar of ETH and most ERC20s.
-
-  function mulWadDown(uint256 x, uint256 y) internal pure returns (uint256) {
-    return mulDivDown(x, y, WAD); // Equivalent to (x * y) / WAD rounded down.
-  }
-
-  function mulDivDown(
-    uint256 x,
-    uint256 y,
-    uint256 denominator
-  ) internal pure returns (uint256 z) {
-    assembly {
-      // Equivalent to require(denominator != 0 && (y == 0 || x <= type(uint256).max / y))
-      if iszero(mul(denominator, iszero(mul(y, gt(x, div(MAX_UINT256, y)))))) {
-        revert(0, 0)
-      }
-
-      // Divide x * y by the denominator.
-      z := div(mul(x, y), denominator)
-    }
-  }
-}
-// forgefmt: disable-end
 
 contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalHelper {
   using FixedPointMathLib for uint256;
