@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import {IERC20} from "openzeppelin-contracts/interfaces/IERC20.sol";
 import {IGovernor} from "openzeppelin-contracts/governance/IGovernor.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {GitcoinGovernor, ICompoundTimelock} from "src/GitcoinGovernor.sol";
 import {DeployInput, DeployScript} from "script/Deploy.s.sol";
 import {IGovernorAlpha} from "src/interfaces/IGovernorAlpha.sol";
@@ -11,10 +12,20 @@ import {IGTC} from "src/interfaces/IGTC.sol";
 import {ProposeScript} from "script/Propose.s.sol";
 
 contract GitcoinGovernorTestHelper is Test, DeployInput {
+  using FixedPointMathLib for uint256;
+
   uint256 constant QUORUM = 2_500_000e18;
   address constant GTC_TOKEN = 0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F;
   address constant TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
   address constant PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
+  address[] delegates = [
+    PROPOSER, // kbw.eth (~1.8M)
+    0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479, // janineleger.eth (~1.53M)
+    0x4Be88f63f919324210ea3A2cCAD4ff0734425F91, // kevinolsen.eth (~1.35M)
+    0x34aA3F359A9D614239015126635CE7732c18fDF3, // Austin Griffith (~1.05M)
+    0x7E052Ef7B4bB7E5A45F331128AFadB1E589deaF1, // Kris Is (~1.05M)
+    0x5e349eca2dc61aBCd9dD99Ce94d04136151a09Ee // Linda Xie (~1.02M)
+  ];
 
   GitcoinGovernor governorBravo;
 
@@ -37,7 +48,7 @@ contract GitcoinGovernorDeployTest is GitcoinGovernorTestHelper {
     assertEq(governorBravo.proposalThreshold(), INITIAL_PROPOSAL_THRESHOLD);
     assertEq(governorBravo.quorum(_blockNumber), QUORUM);
     assertEq(governorBravo.timelock(), TIMELOCK);
-    assertEq(governorBravo.COUNTING_MODE(), "support=bravo&quorum=for,abstain");
+    assertEq(governorBravo.COUNTING_MODE(), "support=bravo&quorum=bravo&params=fractional");
   }
 }
 
@@ -53,14 +64,6 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
   ICompoundTimelock timelock = ICompoundTimelock(payable(TIMELOCK));
   uint256 initialProposalCount;
   uint256 upgradeProposalId;
-  address[] delegates = [
-    PROPOSER, // kbw.eth (~1.8M)
-    0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479, // janineleger.eth (~1.53M)
-    0x4Be88f63f919324210ea3A2cCAD4ff0734425F91, // kevinolsen.eth (~1.35M)
-    0x34aA3F359A9D614239015126635CE7732c18fDF3, // Austin Griffith (~1.05M)
-    0x7E052Ef7B4bB7E5A45F331128AFadB1E589deaF1, // Kris Is (~1.05M)
-    0x5e349eca2dc61aBCd9dD99Ce94d04136151a09Ee // Linda Xie (~1.02M)
-  ];
 
   // As defined in the GovernorAlpha ProposalState Enum
   uint8 constant PENDING = 0;
@@ -464,7 +467,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
   }
 }
 
-contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
+contract GovernorBravoProposalHelper is GitcoinGovernorTestHelper {
   // From GovernorCountingSimple
   uint8 constant AGAINST = 0;
   uint8 constant FOR = 1;
@@ -481,6 +484,10 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   function _jumpToActiveProposal(uint256 _proposalId) internal {
     uint256 _snapshot = governorBravo.proposalSnapshot(_proposalId);
     vm.roll(_snapshot + 1);
+
+    // Ensure the proposal is now Active
+    IGovernor.ProposalState _state = governorBravo.state(_proposalId);
+    assertEq(_state, IGovernor.ProposalState.Active);
   }
 
   function _jumpToVotingComplete(uint256 _proposalId) internal {
@@ -526,7 +533,11 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _description = "Transfer some tokens from the new Governor";
   }
 
-  function _submitTokenSendProposal(address _token, uint256 _amount, address _receiver)
+  function _submitTokenSendProposalToGovernorBravo(
+    address _token,
+    uint256 _amount,
+    address _receiver
+  )
     internal
     returns (
       uint256 _newProposalId,
@@ -542,6 +553,10 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     // Submit the new proposal
     vm.prank(PROPOSER);
     _newProposalId = governorBravo.propose(_targets, _values, _calldata, _description);
+
+    // Ensure proposal is in the expected state
+    IGovernor.ProposalState _state = governorBravo.state(_newProposalId);
+    assertEq(_state, IGovernor.ProposalState.Pending);
   }
 
   // Take a proposal through its full lifecycle, from proposing it, to voting on
@@ -567,10 +582,6 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     assertEq(_state, IGovernor.ProposalState.Pending);
 
     _jumpToActiveProposal(_newProposalId);
-
-    // Ensure the proposal is now Active.
-    _state = governorBravo.state(_newProposalId);
-    assertEq(_state, IGovernor.ProposalState.Active);
 
     // Have all delegates cast their weight with the specified support type.
     _delegatesVoteOnBravoGovernor(_newProposalId, _voteType);
@@ -619,18 +630,26 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   function assertEq(IGovernor.ProposalState _actual, IGovernor.ProposalState _expected) internal {
     assertEq(uint8(_actual), uint8(_expected));
   }
+}
+
+contract NewGitcoinGovernorProposalTest is
+  GitcoinGovernorProposalTestHelper,
+  GovernorBravoProposalHelper
+{
+  function setUp()
+    public
+    virtual
+    override(GitcoinGovernorProposalTestHelper, GitcoinGovernorTestHelper)
+  {
+    GitcoinGovernorProposalTestHelper.setUp();
+  }
 
   function testFuzz_NewGovernorCanReceiveNewProposal(uint256 _gtcAmount, address _gtcReceiver)
     public
   {
     _assumeReceiver(_gtcReceiver);
     _upgradeToBravoGovernor();
-    (uint256 _newProposalId,,,,) =
-      _submitTokenSendProposal(address(gtcToken), _gtcAmount, _gtcReceiver);
-
-    // Ensure proposal is in the expected state
-    IGovernor.ProposalState _state = governorBravo.state(_newProposalId);
-    assertEq(_state, IGovernor.ProposalState.Pending);
+    _submitTokenSendProposalToGovernorBravo(address(gtcToken), _gtcAmount, _gtcReceiver);
   }
 
   function testFuzz_NewGovernorCanDefeatProposal(uint256 _amount, address _receiver, uint256 _seed)
@@ -836,10 +855,6 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
 
     _jumpToActiveProposal(_newProposalId);
 
-    // Ensure the proposal is now Active
-    _state = governorBravo.state(_newProposalId);
-    assertEq(_state, IGovernor.ProposalState.Active);
-
     _delegatesVoteOnBravoGovernor(_newProposalId, FOR);
     _jumpToVotingComplete(_newProposalId);
 
@@ -889,17 +904,9 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
       uint256[] memory _values,
       bytes[] memory _calldatas,
       string memory _description
-    ) = _submitTokenSendProposal(address(_token), _amount, _receiver);
-
-    // Ensure proposal is in the expected state
-    IGovernor.ProposalState _state = governorBravo.state(_newProposalId);
-    assertEq(_state, IGovernor.ProposalState.Pending);
+    ) = _submitTokenSendProposalToGovernorBravo(address(_token), _amount, _receiver);
 
     _jumpToActiveProposal(_newProposalId);
-
-    // Ensure the proposal is now Active
-    _state = governorBravo.state(_newProposalId);
-    assertEq(_state, IGovernor.ProposalState.Active);
 
     // Delegates vote with a mix of For/Against/Abstain with For winning.
     vm.prank(PROPOSER); // kbw.eth (~1.8M votes)
@@ -918,7 +925,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _jumpToVotingComplete(_newProposalId);
 
     // Ensure the proposal has succeeded
-    _state = governorBravo.state(_newProposalId);
+    IGovernor.ProposalState _state = governorBravo.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Succeeded);
 
     // Queue the proposal
@@ -957,17 +964,9 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
       uint256[] memory _values,
       bytes[] memory _calldatas,
       string memory _description
-    ) = _submitTokenSendProposal(address(_token), _amount, _receiver);
-
-    // Ensure proposal is in the expected state
-    IGovernor.ProposalState _state = governorBravo.state(_newProposalId);
-    assertEq(_state, IGovernor.ProposalState.Pending);
+    ) = _submitTokenSendProposalToGovernorBravo(address(_token), _amount, _receiver);
 
     _jumpToActiveProposal(_newProposalId);
-
-    // Ensure the proposal is now Active
-    _state = governorBravo.state(_newProposalId);
-    assertEq(_state, IGovernor.ProposalState.Active);
 
     // Delegates vote with a mix of For/Against/Abstain with Against/Abstain winning.
     vm.prank(PROPOSER); // kbw.eth (~1.8M votes)
@@ -986,7 +985,7 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     _jumpToVotingComplete(_newProposalId);
 
     // Ensure the proposal has failed
-    _state = governorBravo.state(_newProposalId);
+    IGovernor.ProposalState _state = governorBravo.state(_newProposalId);
     assertEq(_state, IGovernor.ProposalState.Defeated);
 
     // It should not be possible to queue the proposal
@@ -1047,9 +1046,8 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
       _vars.bravoValues,
       _vars.bravoCalldatas,
       _vars.bravoDescription
-    ) = _submitTokenSendProposal(address(_token), _amount, _receiver);
+    ) = _submitTokenSendProposalToGovernorBravo(address(_token), _amount, _receiver);
 
-    assertEq(governorBravo.state(_vars.bravoProposalId), IGovernor.ProposalState.Pending);
     assertEq(
       uint8(governorAlpha.state(_vars.alphaProposalId)),
       uint8(governorBravo.state(_vars.bravoProposalId))
@@ -1084,5 +1082,228 @@ contract NewGitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
     );
     vm.expectRevert("Timelock::queueTransaction: Call must come from admin.");
     governorAlpha.queue(_vars.alphaProposalId);
+  }
+}
+
+contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalHelper {
+  using FixedPointMathLib for uint256;
+
+  // Store the id of a new proposal unrelated to governor upgrade.
+  uint256 newProposalId;
+
+  event VoteCastWithParams(
+    address indexed voter,
+    uint256 proposalId,
+    uint8 support,
+    uint256 weight,
+    string reason,
+    bytes params
+  );
+
+  function setUp()
+    public
+    virtual
+    override(GitcoinGovernorProposalTestHelper, GitcoinGovernorTestHelper)
+  {
+    GitcoinGovernorProposalTestHelper.setUp();
+
+    _upgradeToBravoGovernor();
+
+    (newProposalId,,,,) = _submitTokenSendProposalToGovernorBravo(
+      address(usdcToken), usdcToken.balanceOf(TIMELOCK), makeAddr("receiver for FlexVoting tests")
+    );
+
+    _jumpToActiveProposal(newProposalId);
+  }
+
+  function testFuzz_GovernorBravoSupportsCastingSplitVotes(
+    uint256 _forVotePercentage,
+    uint256 _againstVotePercentage,
+    uint256 _abstainVotePercentage
+  ) public {
+    _forVotePercentage = bound(_forVotePercentage, 0.0e18, 1.0e18);
+    _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
+    _abstainVotePercentage =
+      bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
+
+    // Attempt to split vote weight on this new proposal.
+    uint256 _votingSnapshot = governorBravo.proposalSnapshot(newProposalId);
+    uint256 _totalForVotes;
+    uint256 _totalAgainstVotes;
+    uint256 _totalAbstainVotes;
+    for (uint256 _i; _i < delegates.length; _i++) {
+      address _voter = delegates[_i];
+      uint256 _weight = gtcToken.getPriorVotes(_voter, _votingSnapshot);
+
+      uint128 _forVotes = uint128(_weight.mulWadDown(_forVotePercentage));
+      uint128 _againstVotes = uint128(_weight.mulWadDown(_againstVotePercentage));
+      uint128 _abstainVotes = uint128(_weight.mulWadDown(_abstainVotePercentage));
+      bytes memory _fractionalizedVotes = abi.encodePacked(_forVotes, _againstVotes, _abstainVotes);
+      _totalForVotes += _forVotes;
+      _totalAgainstVotes += _againstVotes;
+      _totalAbstainVotes += _abstainVotes;
+
+      // The accepted support types for Bravo fall within [0,2].
+      uint8 _supportTypeDoesntMatterForFlexVoting = uint8(bound(_i, 0, 2));
+
+      vm.expectEmit(true, true, true, true);
+      emit VoteCastWithParams(
+        _voter,
+        newProposalId,
+        _supportTypeDoesntMatterForFlexVoting, // Really: support type is ignored.
+        _weight,
+        "I do what I want",
+        _fractionalizedVotes
+        );
+
+      // This call should succeed.
+      vm.prank(_voter);
+      governorBravo.castVoteWithReasonAndParams(
+        newProposalId,
+        _supportTypeDoesntMatterForFlexVoting,
+        "I do what I want",
+        _fractionalizedVotes
+      );
+    }
+
+    // Ensure the votes were split.
+    (uint256 _actualAgainstVotes, uint256 _actualForVotes, uint256 _actualAbstainVotes) =
+      governorBravo.proposalVotes(newProposalId);
+    assertEq(_totalForVotes, _actualForVotes);
+    assertEq(_totalAgainstVotes, _actualAgainstVotes);
+    assertEq(_totalAbstainVotes, _actualAbstainVotes);
+  }
+
+  struct VoteData {
+    uint128 forVotes;
+    uint128 againstVotes;
+    uint128 abstainVotes;
+  }
+
+  function testFuzz_GovernorBravoSupportsCastingPartialSplitVotes(
+    uint256 _firstVotePercentage,
+    uint256 _forVotePercentage,
+    uint256 _againstVotePercentage,
+    uint256 _abstainVotePercentage
+  ) public {
+    // This is the % of total weight that will be cast the first time.
+    _firstVotePercentage = bound(_firstVotePercentage, 0.1e18, 0.9e18);
+
+    _forVotePercentage = bound(_forVotePercentage, 0.0e18, 1.0e18);
+    _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
+    _abstainVotePercentage =
+      bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
+
+    uint256 _weight = gtcToken.getPriorVotes(
+      PROPOSER, // The proposer is also the top delegate.
+      governorBravo.proposalSnapshot(newProposalId)
+    );
+
+    // The accepted support types for Bravo fall within [0,2].
+    uint8 _supportTypeDoesntMatterForFlexVoting = uint8(2);
+
+    // Cast partial vote the first time.
+    VoteData memory _firstVote;
+    uint256 _voteWeight = _weight.mulWadDown(_firstVotePercentage);
+    _firstVote.forVotes = uint128(_voteWeight.mulWadDown(_forVotePercentage));
+    _firstVote.againstVotes = uint128(_voteWeight.mulWadDown(_againstVotePercentage));
+    _firstVote.abstainVotes = uint128(_voteWeight.mulWadDown(_abstainVotePercentage));
+    vm.prank(PROPOSER);
+    governorBravo.castVoteWithReasonAndParams(
+      newProposalId,
+      _supportTypeDoesntMatterForFlexVoting,
+      "My first vote",
+      abi.encodePacked(_firstVote.forVotes, _firstVote.againstVotes, _firstVote.abstainVotes)
+    );
+
+    ( // Ensure the votes were recorded.
+    uint256 _againstVotesCast, uint256 _forVotesCast, uint256 _abstainVotesCast) =
+      governorBravo.proposalVotes(newProposalId);
+    assertEq(_firstVote.forVotes, _forVotesCast);
+    assertEq(_firstVote.againstVotes, _againstVotesCast);
+    assertEq(_firstVote.abstainVotes, _abstainVotesCast);
+
+    // Cast partial vote the second time.
+    VoteData memory _secondVote;
+    _voteWeight = _weight.mulWadDown(1e18 - _firstVotePercentage);
+    _secondVote.forVotes = uint128(_voteWeight.mulWadDown(_forVotePercentage));
+    _secondVote.againstVotes = uint128(_voteWeight.mulWadDown(_againstVotePercentage));
+    _secondVote.abstainVotes = uint128(_voteWeight.mulWadDown(_abstainVotePercentage));
+    vm.prank(PROPOSER);
+    governorBravo.castVoteWithReasonAndParams(
+      newProposalId,
+      _supportTypeDoesntMatterForFlexVoting,
+      "My second vote",
+      abi.encodePacked(_secondVote.forVotes, _secondVote.againstVotes, _secondVote.abstainVotes)
+    );
+
+    ( // Ensure the new votes were recorded.
+    _againstVotesCast, _forVotesCast, _abstainVotesCast) =
+      governorBravo.proposalVotes(newProposalId);
+    assertEq(_firstVote.forVotes + _secondVote.forVotes, _forVotesCast);
+    assertEq(_firstVote.againstVotes + _secondVote.againstVotes, _againstVotesCast);
+    assertEq(_firstVote.abstainVotes + _secondVote.abstainVotes, _abstainVotesCast);
+
+    // Confirm nominal votes can co-exist with partial+fractional votes by
+    // voting with the second largest delegate.
+    uint256 _nominalVoterWeight =
+      gtcToken.getPriorVotes(delegates[1], governorBravo.proposalSnapshot(newProposalId));
+    vm.prank(delegates[1]);
+    governorBravo.castVote(newProposalId, FOR);
+
+    ( // Ensure the nominal votes were recorded.
+    _againstVotesCast, _forVotesCast, _abstainVotesCast) =
+      governorBravo.proposalVotes(newProposalId);
+    assertEq(_firstVote.forVotes + _secondVote.forVotes + _nominalVoterWeight, _forVotesCast);
+    assertEq(_firstVote.againstVotes + _secondVote.againstVotes, _againstVotesCast);
+    assertEq(_firstVote.abstainVotes + _secondVote.abstainVotes, _abstainVotesCast);
+  }
+
+  function testFuzz_ProposalsCanBePassedWithSplitVotes(
+    uint256 _forVotePercentage,
+    uint256 _againstVotePercentage,
+    uint256 _abstainVotePercentage
+  ) public {
+    _forVotePercentage = bound(_forVotePercentage, 0.0e18, 1.0e18);
+    _againstVotePercentage = bound(_againstVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage);
+    _abstainVotePercentage =
+      bound(_abstainVotePercentage, 0.0e18, 1.0e18 - _forVotePercentage - _againstVotePercentage);
+
+    uint256 _weight = gtcToken.getPriorVotes(
+      PROPOSER, // The proposer is also the top delegate.
+      governorBravo.proposalSnapshot(newProposalId)
+    );
+
+    uint128 _forVotes = uint128(_weight.mulWadDown(_forVotePercentage));
+    uint128 _againstVotes = uint128(_weight.mulWadDown(_againstVotePercentage));
+    uint128 _abstainVotes = uint128(_weight.mulWadDown(_abstainVotePercentage));
+
+    // The accepted support types for Bravo fall within [0,2].
+    uint8 _supportTypeDoesntMatterForFlexVoting = uint8(2);
+
+    vm.prank(PROPOSER);
+    governorBravo.castVoteWithReasonAndParams(
+      newProposalId,
+      _supportTypeDoesntMatterForFlexVoting,
+      "My vote",
+      abi.encodePacked(_forVotes, _againstVotes, _abstainVotes)
+    );
+
+    ( // Ensure the votes were split.
+    uint256 _actualAgainstVotes, uint256 _actualForVotes, uint256 _actualAbstainVotes) =
+      governorBravo.proposalVotes(newProposalId);
+    assertEq(_forVotes, _actualForVotes);
+    assertEq(_againstVotes, _actualAgainstVotes);
+    assertEq(_abstainVotes, _actualAbstainVotes);
+
+    _jumpToVotingComplete(newProposalId);
+
+    IGovernor.ProposalState _state = governorBravo.state(newProposalId);
+
+    if (_forVotes >= governorBravo.quorum(block.number) && _forVotes > _againstVotes) {
+      assertEq(_state, IGovernor.ProposalState.Succeeded);
+    } else {
+      assertEq(_state, IGovernor.ProposalState.Defeated);
+    }
   }
 }
