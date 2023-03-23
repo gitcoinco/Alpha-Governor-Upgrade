@@ -6,7 +6,7 @@
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
 [submodule "lib/flexible-voting"]
 	path = lib/flexible-voting
-	url = https://github.com/ScopeLift/flexible-voting
+	url = https://github.com/scopelift/flexible-voting
 [submodule "lib/solmate"]
 	path = lib/solmate
 	url = https://github.com/transmissions11/solmate
