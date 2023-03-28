@@ -86,9 +86,11 @@ forge script script/Propose.s.sol --sig "run(address)" NEW_GOVERNOR_ADDRESS --rp
 The Gitcoin Bravo governor inherits from `GovernorCountingFractional`, which is
 defined in the [flex-voting](https://github.com/ScopeLift/flexible-voting)
 project. This is done to enable:
-    * partial voting (voting with less than full weight)
-    * rolling voting (voting multiple times on the same proposal with partial weight)
-    * split voting (splitting vote weight across against/for/abstain options)
+
+* partial voting (voting with less than full weight)
+* rolling voting (voting multiple times on the same proposal with partial weight)
+* split voting (splitting vote weight across against/for/abstain options)
+
 We use the `v1.0.0` tag of flex-voting because this was the version audited by
 Open Zeppelin.
 
