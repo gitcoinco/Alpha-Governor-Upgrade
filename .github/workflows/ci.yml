@@ -118,13 +118,11 @@ jobs:
 
   slither-analyze:
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
     steps:
       - uses: actions/checkout@v3
 
       - name: Run Slither
-        uses: crytic/slither-action@v0.2.0
+        uses: crytic/slither-action@v0.3.0
         id: slither # Required to reference this step in the next step.
         with:
           fail-on: none # Required to avoid failing the CI run regardless of findings.
