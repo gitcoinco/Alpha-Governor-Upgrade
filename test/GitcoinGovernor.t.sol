@@ -48,7 +48,7 @@ contract GitcoinGovernorDeployTest is GitcoinGovernorTestHelper {
     assertEq(governorBravo.proposalThreshold(), INITIAL_PROPOSAL_THRESHOLD);
     assertEq(governorBravo.quorum(_blockNumber), QUORUM);
     assertEq(governorBravo.timelock(), TIMELOCK);
-    assertEq(governorBravo.COUNTING_MODE(), "support=bravo&quorum=bravo&params=fractional");
+    assertEq(governorBravo.COUNTING_MODE(), "support=bravo&quorum=for,abstain&params=fractional");
   }
 }
 
@@ -1138,7 +1138,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       uint128 _forVotes = uint128(_weight.mulWadDown(_forVotePercentage));
       uint128 _againstVotes = uint128(_weight.mulWadDown(_againstVotePercentage));
       uint128 _abstainVotes = uint128(_weight.mulWadDown(_abstainVotePercentage));
-      bytes memory _fractionalizedVotes = abi.encodePacked(_forVotes, _againstVotes, _abstainVotes);
+      bytes memory _fractionalizedVotes = abi.encodePacked(_againstVotes, _forVotes, _abstainVotes);
       _totalForVotes += _forVotes;
       _totalAgainstVotes += _againstVotes;
       _totalAbstainVotes += _abstainVotes;
@@ -1154,7 +1154,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
         _weight,
         "I do what I want",
         _fractionalizedVotes
-        );
+      );
 
       // This call should succeed.
       vm.prank(_voter);
@@ -1213,7 +1213,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       newProposalId,
       _supportTypeDoesntMatterForFlexVoting,
       "My first vote",
-      abi.encodePacked(_firstVote.forVotes, _firstVote.againstVotes, _firstVote.abstainVotes)
+      abi.encodePacked(_firstVote.againstVotes, _firstVote.forVotes, _firstVote.abstainVotes)
     );
 
     ( // Ensure the votes were recorded.
@@ -1234,7 +1234,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       newProposalId,
       _supportTypeDoesntMatterForFlexVoting,
       "My second vote",
-      abi.encodePacked(_secondVote.forVotes, _secondVote.againstVotes, _secondVote.abstainVotes)
+      abi.encodePacked(_secondVote.againstVotes, _secondVote.forVotes, _secondVote.abstainVotes)
     );
 
     ( // Ensure the new votes were recorded.
@@ -1286,7 +1286,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       newProposalId,
       _supportTypeDoesntMatterForFlexVoting,
       "My vote",
-      abi.encodePacked(_forVotes, _againstVotes, _abstainVotes)
+      abi.encodePacked(_againstVotes, _forVotes, _abstainVotes)
     );
 
     ( // Ensure the votes were split.
