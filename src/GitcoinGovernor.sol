@@ -2,10 +2,10 @@
 pragma solidity ^0.8.17;
 
 // forgefmt: disable-start
-import { Governor, GovernorCountingFractional } from "flexible-voting/GovernorCountingFractional.sol";
-import { ERC20VotesComp, GovernorVotesComp } from "openzeppelin-contracts/governance/extensions/GovernorVotesComp.sol";
-import { GovernorTimelockCompound, ICompoundTimelock } from "openzeppelin-contracts/governance/extensions/GovernorTimelockCompound.sol";
-import { GovernorSettings } from "openzeppelin-contracts/governance/extensions/GovernorSettings.sol";
+import { Governor, GovernorCountingFractional } from "flexible-voting/src/GovernorCountingFractional.sol";
+import { ERC20VotesComp, GovernorVotesComp } from "@openzeppelin/contracts/governance/extensions/GovernorVotesComp.sol";
+import { GovernorTimelockCompound, ICompoundTimelock } from "@openzeppelin/contracts/governance/extensions/GovernorTimelockCompound.sol";
+import { GovernorSettings } from "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
 // forgefmt: disable-end
 
 /// @notice The upgraded Gitcoin Governor: Bravo compatible and built with OpenZeppelin.

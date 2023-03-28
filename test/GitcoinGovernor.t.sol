@@ -2,8 +2,8 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import {IERC20} from "openzeppelin-contracts/interfaces/IERC20.sol";
-import {IGovernor} from "openzeppelin-contracts/governance/IGovernor.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IGovernor} from "@openzeppelin/contracts/governance/IGovernor.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {GitcoinGovernor, ICompoundTimelock} from "src/GitcoinGovernor.sol";
 import {DeployInput, DeployScript} from "script/Deploy.s.sol";
