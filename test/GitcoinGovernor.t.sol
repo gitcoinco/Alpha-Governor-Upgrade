@@ -43,11 +43,15 @@ contract GitcoinGovernorDeployTest is GitcoinGovernorTestHelper {
   function testFuzz_deployment(uint256 _blockNumber) public {
     assertEq(governorBravo.name(), "GTC Governor Bravo");
     assertEq(address(governorBravo.token()), GTC_TOKEN);
-    assertEq(INITIAL_VOTING_DELAY, 13_140); // Copied from mainnet contract.
+    // forgefmt: disable-start
+    // These values were all copied directly from the mainnet alpha governor at:
+    //   0xDbD27635A534A3d3169Ef0498beB56Fb9c937489
+    assertEq(INITIAL_VOTING_DELAY, 13140);
+    assertEq(INITIAL_VOTING_PERIOD, 40_320);
+    assertEq(INITIAL_PROPOSAL_THRESHOLD, 1_000_000e18);
+    // forgefmt: disable-end
     assertEq(governorBravo.votingDelay(), INITIAL_VOTING_DELAY);
-    assertEq(INITIAL_VOTING_PERIOD, 40_320); // Copied from mainnet contract.
     assertEq(governorBravo.votingPeriod(), INITIAL_VOTING_PERIOD);
-    assertEq(INITIAL_PROPOSAL_THRESHOLD, 1_000_000e18); // Copied from mainnet contract.
     assertEq(governorBravo.proposalThreshold(), INITIAL_PROPOSAL_THRESHOLD);
     assertEq(governorBravo.quorum(_blockNumber), QUORUM);
     assertEq(governorBravo.timelock(), TIMELOCK);
@@ -94,7 +98,7 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
     // else. We also can't have the receiver be the zero address because GTC
     // blocks transfers to the zero address -- see line 546:
     // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
-    vm.assume(_receiver != TIMELOCK && _receiver > address(0));
+    vm.assume(_receiver != TIMELOCK && _receiver != VM_ADDRESS && _receiver > address(0));
     assumeNoPrecompiles(_receiver);
   }
 
