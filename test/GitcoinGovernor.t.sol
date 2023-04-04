@@ -43,8 +43,11 @@ contract GitcoinGovernorDeployTest is GitcoinGovernorTestHelper {
   function testFuzz_deployment(uint256 _blockNumber) public {
     assertEq(governorBravo.name(), "GTC Governor Bravo");
     assertEq(address(governorBravo.token()), GTC_TOKEN);
+    assertEq(INITIAL_VOTING_DELAY, 13_140); // Copied from mainnet contract.
     assertEq(governorBravo.votingDelay(), INITIAL_VOTING_DELAY);
+    assertEq(INITIAL_VOTING_PERIOD, 40_320); // Copied from mainnet contract.
     assertEq(governorBravo.votingPeriod(), INITIAL_VOTING_PERIOD);
+    assertEq(INITIAL_PROPOSAL_THRESHOLD, 1_000_000e18); // Copied from mainnet contract.
     assertEq(governorBravo.proposalThreshold(), INITIAL_PROPOSAL_THRESHOLD);
     assertEq(governorBravo.quorum(_blockNumber), QUORUM);
     assertEq(governorBravo.timelock(), TIMELOCK);
