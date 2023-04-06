@@ -100,7 +100,7 @@ because of [an open issue in foundry](https://github.com/foundry-rs/foundry/issu
 we are currently sourcing the OZ library from within the flex-voting dependency.
 flex-voting [uses
 OZ](https://github.com/ScopeLift/flexible-voting/tree/4399694c1a70d9e236c4c072802bfbe8e4951bf0/lib)
-tagged at [v4.8.0](https://github.com/OpenZeppelin/openzeppelin-contracts/releases/tag/v4.8.0).
+tagged at [v4.8.0](https://github.com/OpenZeppelin/openzeppelin-contracts/releases/tag/v4.8.0). (Note that an alternative solution would be to install OZ in this repo like normal, and just reference it with relative paths instead of absolute paths).
 
 At the time of writing (March 28 2023) [there are no
 changes](https://github.com/OpenZeppelin/openzeppelin-contracts/compare/49c0e43...d00acef) to any of the OZ
