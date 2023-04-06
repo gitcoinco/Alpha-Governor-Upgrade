@@ -2,8 +2,8 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import {IERC20} from "openzeppelin-contracts/interfaces/IERC20.sol";
-import {IGovernor} from "openzeppelin-contracts/governance/IGovernor.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IGovernor} from "@openzeppelin/contracts/governance/IGovernor.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {GitcoinGovernor, ICompoundTimelock} from "src/GitcoinGovernor.sol";
 import {DeployInput, DeployScript} from "script/Deploy.s.sol";
@@ -43,12 +43,19 @@ contract GitcoinGovernorDeployTest is GitcoinGovernorTestHelper {
   function testFuzz_deployment(uint256 _blockNumber) public {
     assertEq(governorBravo.name(), "GTC Governor Bravo");
     assertEq(address(governorBravo.token()), GTC_TOKEN);
+    // forgefmt: disable-start
+    // These values were all copied directly from the mainnet alpha governor at:
+    //   0xDbD27635A534A3d3169Ef0498beB56Fb9c937489
+    assertEq(INITIAL_VOTING_DELAY, 13140);
+    assertEq(INITIAL_VOTING_PERIOD, 40_320);
+    assertEq(INITIAL_PROPOSAL_THRESHOLD, 1_000_000e18);
+    // forgefmt: disable-end
     assertEq(governorBravo.votingDelay(), INITIAL_VOTING_DELAY);
     assertEq(governorBravo.votingPeriod(), INITIAL_VOTING_PERIOD);
     assertEq(governorBravo.proposalThreshold(), INITIAL_PROPOSAL_THRESHOLD);
     assertEq(governorBravo.quorum(_blockNumber), QUORUM);
     assertEq(governorBravo.timelock(), TIMELOCK);
-    assertEq(governorBravo.COUNTING_MODE(), "support=bravo&quorum=bravo&params=fractional");
+    assertEq(governorBravo.COUNTING_MODE(), "support=bravo&quorum=for,abstain&params=fractional");
   }
 }
 
@@ -85,13 +92,20 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
   //--------------- HELPERS ---------------//
 
   function _assumeReceiver(address _receiver) internal {
-    // We don't want the receiver to be the Timelock, as that would make our
-    // assertions less meaningful -- most of our tests want to confirm that
-    // proposals can cause tokens to be sent *from* the timelock to somewhere
-    // else. We also can't have the receiver be the zero address because GTC
-    // blocks transfers to the zero address -- see line 546:
-    // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
-    vm.assume(_receiver != TIMELOCK && _receiver > address(0));
+    assumePayable(_receiver);
+    vm.assume(
+      // We don't want the receiver to be the Timelock, as that would make our
+      // assertions less meaningful -- most of our tests want to confirm that
+      // proposals can cause tokens to be sent *from* the timelock to somewhere
+      // else.
+      _receiver != TIMELOCK
+      // We also can't have the receiver be the zero address because GTC
+      // blocks transfers to the zero address -- see line 546:
+      // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
+      && _receiver > address(0)
+      // USDC reverts if you attempt to send ETH to it.
+      && _receiver != USDC_ADDRESS
+    );
     assumeNoPrecompiles(_receiver);
   }
 
@@ -316,7 +330,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
   {
     _assumeReceiver(_receiver);
 
-    // Counter-intuitively, the Governor must hold the ETH, not the Timelock.
+    // Counter-intuitively, the Governor (not the Timelock) must hold the ETH.
     // See the deployed GovernorAlpha, line 227:
     //   https://etherscan.io/address/0xDbD27635A534A3d3169Ef0498beB56Fb9c937489#code
     // The governor transfers ETH to the Timelock in the process of executing
@@ -1138,7 +1152,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       uint128 _forVotes = uint128(_weight.mulWadDown(_forVotePercentage));
       uint128 _againstVotes = uint128(_weight.mulWadDown(_againstVotePercentage));
       uint128 _abstainVotes = uint128(_weight.mulWadDown(_abstainVotePercentage));
-      bytes memory _fractionalizedVotes = abi.encodePacked(_forVotes, _againstVotes, _abstainVotes);
+      bytes memory _fractionalizedVotes = abi.encodePacked(_againstVotes, _forVotes, _abstainVotes);
       _totalForVotes += _forVotes;
       _totalAgainstVotes += _againstVotes;
       _totalAbstainVotes += _abstainVotes;
@@ -1154,7 +1168,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
         _weight,
         "I do what I want",
         _fractionalizedVotes
-        );
+      );
 
       // This call should succeed.
       vm.prank(_voter);
@@ -1213,7 +1227,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       newProposalId,
       _supportTypeDoesntMatterForFlexVoting,
       "My first vote",
-      abi.encodePacked(_firstVote.forVotes, _firstVote.againstVotes, _firstVote.abstainVotes)
+      abi.encodePacked(_firstVote.againstVotes, _firstVote.forVotes, _firstVote.abstainVotes)
     );
 
     ( // Ensure the votes were recorded.
@@ -1234,7 +1248,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       newProposalId,
       _supportTypeDoesntMatterForFlexVoting,
       "My second vote",
-      abi.encodePacked(_secondVote.forVotes, _secondVote.againstVotes, _secondVote.abstainVotes)
+      abi.encodePacked(_secondVote.againstVotes, _secondVote.forVotes, _secondVote.abstainVotes)
     );
 
     ( // Ensure the new votes were recorded.
@@ -1286,7 +1300,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       newProposalId,
       _supportTypeDoesntMatterForFlexVoting,
       "My vote",
-      abi.encodePacked(_forVotes, _againstVotes, _abstainVotes)
+      abi.encodePacked(_againstVotes, _forVotes, _abstainVotes)
     );
 
     ( // Ensure the votes were split.
