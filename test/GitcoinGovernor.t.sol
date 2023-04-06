@@ -92,13 +92,20 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
   //--------------- HELPERS ---------------//
 
   function _assumeReceiver(address _receiver) internal {
-    // We don't want the receiver to be the Timelock, as that would make our
-    // assertions less meaningful -- most of our tests want to confirm that
-    // proposals can cause tokens to be sent *from* the timelock to somewhere
-    // else. We also can't have the receiver be the zero address because GTC
-    // blocks transfers to the zero address -- see line 546:
-    // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
-    vm.assume(_receiver != TIMELOCK && _receiver != VM_ADDRESS && _receiver > address(0));
+    assumePayable(_receiver);
+    vm.assume(
+      // We don't want the receiver to be the Timelock, as that would make our
+      // assertions less meaningful -- most of our tests want to confirm that
+      // proposals can cause tokens to be sent *from* the timelock to somewhere
+      // else.
+      _receiver != TIMELOCK &&
+      // We also can't have the receiver be the zero address because GTC
+      // blocks transfers to the zero address -- see line 546:
+      // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
+      _receiver > address(0) &&
+      // USDC reverts if you attempt to send ETH to it.
+      _receiver != USDC_ADDRESS
+    );
     assumeNoPrecompiles(_receiver);
   }
 
@@ -323,7 +330,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
   {
     _assumeReceiver(_receiver);
 
-    // Counter-intuitively, the Governor must hold the ETH, not the Timelock.
+    // Counter-intuitively, the Governor (not the Timelock) must hold the ETH.
     // See the deployed GovernorAlpha, line 227:
     //   https://etherscan.io/address/0xDbD27635A534A3d3169Ef0498beB56Fb9c937489#code
     // The governor transfers ETH to the Timelock in the process of executing
