@@ -98,13 +98,13 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
       // assertions less meaningful -- most of our tests want to confirm that
       // proposals can cause tokens to be sent *from* the timelock to somewhere
       // else.
-      _receiver != TIMELOCK &&
+      _receiver != TIMELOCK
       // We also can't have the receiver be the zero address because GTC
       // blocks transfers to the zero address -- see line 546:
       // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
-      _receiver > address(0) &&
+      && _receiver > address(0)
       // USDC reverts if you attempt to send ETH to it.
-      _receiver != USDC_ADDRESS
+      && _receiver != USDC_ADDRESS
     );
     assumeNoPrecompiles(_receiver);
   }
