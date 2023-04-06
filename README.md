@@ -1,6 +1,6 @@
 # Gitcoin Governor Bravo
 
-An upgrade to a "Bravo" compatible Governor for the GitcoinDAO, built using the OpenZeppelin implementation and [flexible-voting](https://github.com/ScopeLift/flexible-voting).
+An upgrade to a "Bravo" compatible Governor for the GitcoinDAO, built using the OpenZeppelin implementation and [Flexible Voting](https://github.com/ScopeLift/flexible-voting).
 
 ## Development
 
@@ -84,21 +84,21 @@ forge script script/Propose.s.sol --sig "run(address)" NEW_GOVERNOR_ADDRESS --rp
 ## Dependencies
 
 The Gitcoin Bravo governor inherits from `GovernorCountingFractional`, which is
-defined in the [flex-voting](https://github.com/ScopeLift/flexible-voting)
+defined in the [Flexible Voting](https://github.com/ScopeLift/flexible-voting)
 project. This is done to enable:
 
 * partial voting (voting with less than full weight)
 * rolling voting (voting multiple times on the same proposal with partial weight)
 * split voting (splitting vote weight across against/for/abstain options)
 
-We use the `v1.0.0` tag of flex-voting because this was the version audited by
+We use the `v1.0.0` tag of Flexible Voting because this was the version audited by
 Open Zeppelin.
 
 Additionally, this project depends on [Open Zeppelin's contracts
 library](https://github.com/OpenZeppelin/openzeppelin-contracts/). However,
 because of [an open issue in foundry](https://github.com/foundry-rs/foundry/issues/1855),
-we are currently sourcing the OZ library from within the flex-voting dependency.
-flex-voting [uses
+we are currently sourcing the OZ library from within the Flexible Voting dependency.
+Flexible Voting [uses
 OZ](https://github.com/ScopeLift/flexible-voting/tree/4399694c1a70d9e236c4c072802bfbe8e4951bf0/lib)
 tagged at [v4.8.0](https://github.com/OpenZeppelin/openzeppelin-contracts/releases/tag/v4.8.0). (Note that an alternative solution would be to install OZ in this repo like normal, and just reference it with relative paths instead of absolute paths).
 
