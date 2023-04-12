@@ -11,13 +11,14 @@ import {IGovernorAlpha} from "src/interfaces/IGovernorAlpha.sol";
 import {IGTC} from "src/interfaces/IGTC.sol";
 import {ProposeScript} from "script/Propose.s.sol";
 
-contract GitcoinGovernorTestHelper is Test, DeployInput {
+abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
   using FixedPointMathLib for uint256;
 
   uint256 constant QUORUM = 2_500_000e18;
   address constant GTC_TOKEN = 0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F;
   address constant TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
   address constant PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
+  address constant DEPLOYED_BRAVO_GOVERNOR = 0x1a84384e1f1b12D53E60C8C528178dC87767b488;
 
   struct Delegate {
     string handle;
@@ -46,13 +47,23 @@ contract GitcoinGovernorTestHelper is Test, DeployInput {
 
     vm.createSelectFork(vm.rpcUrl("mainnet"), _forkBlock);
 
-    DeployScript _deployScript = new DeployScript();
-    _deployScript.setUp();
-    governorBravo = _deployScript.run();
+    if (_useDeployedGovernorBravo()) {
+      // The GitcoinGovernor contract was deployed to mainnet on April 7th 2023
+      // using DeployScript in this repo.
+      governorBravo = GitcoinGovernor(payable(DEPLOYED_BRAVO_GOVERNOR));
+    } else {
+      // We still want to exercise the script in these tests to give us
+      // confidence that we could deploy again if necessary.
+      DeployScript _deployScript = new DeployScript();
+      _deployScript.setUp();
+      governorBravo = _deployScript.run();
+    }
   }
+
+  function _useDeployedGovernorBravo() internal virtual returns (bool);
 }
 
-contract GitcoinGovernorDeployTest is GitcoinGovernorTestHelper {
+abstract contract BravoGovernorDeployTest is GitcoinGovernorTestHelper {
   function testFuzz_deployment(uint256 _blockNumber) public {
     assertEq(governorBravo.name(), "GTC Governor Bravo");
     assertEq(address(governorBravo.token()), GTC_TOKEN);
@@ -72,7 +83,7 @@ contract GitcoinGovernorDeployTest is GitcoinGovernorTestHelper {
   }
 }
 
-contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
+abstract contract ProposalTestHelper is GitcoinGovernorTestHelper {
   //----------------- State and Setup ----------- //
 
   IGovernorAlpha governorAlpha = IGovernorAlpha(0xDbD27635A534A3d3169Ef0498beB56Fb9c937489);
@@ -185,7 +196,7 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
   }
 }
 
-contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
+abstract contract AlphaGovernorPreProposalTest is ProposalTestHelper {
   function test_Proposal() public {
     // Proposal has been recorded
     assertEq(governorAlpha.proposalCount(), initialProposalCount + 1);
@@ -297,7 +308,7 @@ contract GitcoinGovernorProposalTest is GitcoinGovernorProposalTestHelper {
   }
 }
 
-contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelper {
+abstract contract AlphaGovernorPostProposalTest is ProposalTestHelper {
   function _queueAndVoteAndExecuteProposalWithAlphaGovernor(
     address[] memory _targets,
     uint256[] memory _values,
@@ -492,7 +503,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
   }
 }
 
-contract GovernorBravoProposalHelper is GitcoinGovernorTestHelper {
+abstract contract GovernorBravoProposalHelper is ProposalTestHelper {
   // From GovernorCountingSimple
   uint8 constant AGAINST = 0;
   uint8 constant FOR = 1;
@@ -657,16 +668,14 @@ contract GovernorBravoProposalHelper is GitcoinGovernorTestHelper {
   }
 }
 
-contract NewGitcoinGovernorProposalTest is
-  GitcoinGovernorProposalTestHelper,
-  GovernorBravoProposalHelper
+abstract contract BravoGovernorProposalTest is GovernorBravoProposalHelper
 {
   function setUp()
     public
     virtual
-    override(GitcoinGovernorProposalTestHelper, GitcoinGovernorTestHelper)
+    override(ProposalTestHelper)
   {
-    GitcoinGovernorProposalTestHelper.setUp();
+    ProposalTestHelper.setUp();
   }
 
   function testFuzz_NewGovernorCanReceiveNewProposal(uint256 _gtcAmount, address _gtcReceiver)
@@ -1122,7 +1131,7 @@ contract NewGitcoinGovernorProposalTest is
   }
 }
 
-contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalHelper {
+abstract contract FlexVotingTest is GovernorBravoProposalHelper {
   using FixedPointMathLib for uint256;
 
   // Store the id of a new proposal unrelated to governor upgrade.
@@ -1140,9 +1149,9 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
   function setUp()
     public
     virtual
-    override(GitcoinGovernorProposalTestHelper, GitcoinGovernorTestHelper)
+    override(ProposalTestHelper)
   {
-    GitcoinGovernorProposalTestHelper.setUp();
+    ProposalTestHelper.setUp();
 
     _upgradeToBravoGovernor();
 
@@ -1343,4 +1352,38 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
       assertEq(_state, IGovernor.ProposalState.Defeated);
     }
   }
+}
+
+// Exercise the existing Bravo contract deployed on April 7th 2023.
+contract BravoGovernorDeployTestWithExistingBravo is BravoGovernorDeployTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+}
+contract AlphaGovernorPreProposalTestWithExistingBravo is AlphaGovernorPreProposalTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+}
+contract AlphaGovernorPostProposalTestWithExistingBravo is AlphaGovernorPostProposalTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+}
+contract BravoGovernorProposalTestWithExistingBravo is BravoGovernorProposalTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+}
+contract FlexVotingTestWithExistingBravo is FlexVotingTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+}
+
+// Exercise a fresh Bravo deploy.
+contract BravoGovernorDeployTestWithBravoDeployedByScript is BravoGovernorDeployTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
+}
+contract AlphaGovernorPreProposalTestWithBravoDeployedByScript is AlphaGovernorPreProposalTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
+}
+contract AlphaGovernorPostProposalTestWithBravoDeployedByScript is AlphaGovernorPostProposalTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
+}
+contract BravoGovernorProposalTestWithBravoDeployedByScript is BravoGovernorProposalTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
+}
+contract FlexVotingTestWithBravoDeployedByScript is FlexVotingTest {
+  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
 }
