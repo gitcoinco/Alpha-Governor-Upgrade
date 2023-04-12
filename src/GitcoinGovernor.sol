@@ -86,7 +86,7 @@ contract GitcoinGovernor is
   /// as of a given block.
   /// @dev Our implementation ignores the block number parameter and returns a constant.
   function quorum(uint256) public pure override returns (uint256) {
-    return QUORUM; // TODO: should quorum be upgradeable too?
+    return QUORUM;
   }
 
   /// @dev We override this function to resolve ambiguity between inherited contracts.
