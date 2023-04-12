@@ -18,19 +18,32 @@ contract GitcoinGovernorTestHelper is Test, DeployInput {
   address constant GTC_TOKEN = 0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F;
   address constant TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
   address constant PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
-  address[] delegates = [
-    PROPOSER, // kbw.eth (~1.8M)
-    0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479, // janineleger.eth (~1.53M)
-    0x4Be88f63f919324210ea3A2cCAD4ff0734425F91, // kevinolsen.eth (~1.35M)
-    0x34aA3F359A9D614239015126635CE7732c18fDF3, // Austin Griffith (~1.05M)
-    0x7E052Ef7B4bB7E5A45F331128AFadB1E589deaF1, // Kris Is (~1.05M)
-    0x5e349eca2dc61aBCd9dD99Ce94d04136151a09Ee // Linda Xie (~1.02M)
-  ];
+
+  struct Delegate {
+    string handle;
+    address addr;
+    uint256 votes;
+  }
+
+  Delegate[] delegates;
 
   GitcoinGovernor governorBravo;
 
   function setUp() public virtual {
-    uint256 _forkBlock = 15_980_096; // The latest block when this test was written
+    // The latest block when this test was written. If you update the fork block
+    // make sure to also update the top 6 delegates below.
+    uint256 _forkBlock = 17_032_826;
+
+    // Taken from https://www.tally.xyz/gov/gitcoin/delegates?sort=voting_power_desc.
+    // If you update these delegates (including updating order in the array),
+    // make sure to update any tests that reference specific delegates.
+    delegates.push(Delegate("kevinolsen.eth", 0x4Be88f63f919324210ea3A2cCAD4ff0734425F91, 1.8e6));
+    delegates.push(Delegate("janineleger.eth", 0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479, 1.7e6));
+    delegates.push(Delegate("kbw.eth", PROPOSER, 1.2e6));
+    delegates.push(Delegate("griff.eth", 0x839395e20bbB182fa440d08F850E6c7A8f6F0780, 0.8e6));
+    delegates.push(Delegate("lefteris.eth", 0x2B888954421b424C5D3D9Ce9bB67c9bD47537d12, 0.6e6));
+    delegates.push(Delegate("anon gnosis safe", 0x93F80a67FdFDF9DaF1aee5276Db95c8761cc8561, 0.5e6));
+
     vm.createSelectFork(vm.rpcUrl("mainnet"), _forkBlock);
 
     DeployScript _deployScript = new DeployScript();
@@ -145,7 +158,7 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
 
   function _delegatesVoteOnUpgradeProposal(bool _support) internal {
     for (uint256 _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
+      vm.prank(delegates[_index].addr);
       governorAlpha.castVote(upgradeProposalId, _support);
     }
   }
@@ -303,7 +316,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     (,,, uint256 _startBlock, uint256 _endBlock,,,,) = governorAlpha.proposals(_newProposalId);
     vm.roll(_startBlock + 1);
     for (uint256 _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
+      vm.prank(delegates[_index].addr);
       governorAlpha.castVote(_newProposalId, true);
     }
     vm.roll(_endBlock + 1);
@@ -325,7 +338,7 @@ contract GitcoinGovernorAlphaPostProposalTest is GitcoinGovernorProposalTestHelp
     assertEq(governorAlpha.state(_newProposalId), EXECUTED);
   }
 
-  function testFuzz_OldGovernorSendsETHAfterProposalIsDefeated(uint256 _amount, address _receiver)
+  function testFuzz_OldGovernorSendsETHAfterProposalIsDefeated(uint128 _amount, address _receiver)
     public
   {
     _assumeReceiver(_receiver);
@@ -520,7 +533,7 @@ contract GovernorBravoProposalHelper is GitcoinGovernorTestHelper {
     require(_support < 3, "Invalid value for support");
 
     for (uint256 _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
+      vm.prank(delegates[_index].addr);
       governorBravo.castVote(_proposalId, _support);
     }
   }
@@ -923,18 +936,24 @@ contract NewGitcoinGovernorProposalTest is
     _jumpToActiveProposal(_newProposalId);
 
     // Delegates vote with a mix of For/Against/Abstain with For winning.
-    vm.prank(PROPOSER); // kbw.eth (~1.8M votes)
+    vm.prank(delegates[0].addr);
     governorBravo.castVote(_newProposalId, FOR);
-    vm.prank(0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479); // janineleger.eth (~1.53M)
+    vm.prank(delegates[1].addr);
     governorBravo.castVote(_newProposalId, FOR);
-    vm.prank(0x4Be88f63f919324210ea3A2cCAD4ff0734425F91); // kevinolsen.eth (~1.35M)
+    vm.prank(delegates[2].addr);
     governorBravo.castVote(_newProposalId, FOR);
-    vm.prank(0x34aA3F359A9D614239015126635CE7732c18fDF3); // Austin Griffith (~1.05M)
+    vm.prank(delegates[3].addr);
     governorBravo.castVote(_newProposalId, AGAINST);
-    vm.prank(0x7E052Ef7B4bB7E5A45F331128AFadB1E589deaF1); // Kris Is (~1.05M)
+    vm.prank(delegates[4].addr);
     governorBravo.castVote(_newProposalId, ABSTAIN);
-    vm.prank(0x5e349eca2dc61aBCd9dD99Ce94d04136151a09Ee); // Linda Xie (~1.02M)
+    vm.prank(delegates[5].addr);
     governorBravo.castVote(_newProposalId, AGAINST);
+
+    // The vote should pass.
+    assertGt(
+      delegates[0].votes + delegates[1].votes + delegates[2].votes, // FOR votes.
+      delegates[3].votes + delegates[5].votes // AGAINST votes.
+    );
 
     _jumpToVotingComplete(_newProposalId);
 
@@ -983,18 +1002,24 @@ contract NewGitcoinGovernorProposalTest is
     _jumpToActiveProposal(_newProposalId);
 
     // Delegates vote with a mix of For/Against/Abstain with Against/Abstain winning.
-    vm.prank(PROPOSER); // kbw.eth (~1.8M votes)
+    vm.prank(delegates[0].addr);
     governorBravo.castVote(_newProposalId, ABSTAIN);
-    vm.prank(0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479); // janineleger.eth (~1.53M)
+    vm.prank(delegates[1].addr);
     governorBravo.castVote(_newProposalId, FOR);
-    vm.prank(0x4Be88f63f919324210ea3A2cCAD4ff0734425F91); // kevinolsen.eth (~1.35M)
+    vm.prank(delegates[2].addr);
+    governorBravo.castVote(_newProposalId, AGAINST);
+    vm.prank(delegates[3].addr);
+    governorBravo.castVote(_newProposalId, AGAINST);
+    vm.prank(delegates[4].addr);
+    governorBravo.castVote(_newProposalId, AGAINST);
+    vm.prank(delegates[5].addr);
     governorBravo.castVote(_newProposalId, FOR);
-    vm.prank(0x34aA3F359A9D614239015126635CE7732c18fDF3); // Austin Griffith (~1.05M)
-    governorBravo.castVote(_newProposalId, AGAINST);
-    vm.prank(0x7E052Ef7B4bB7E5A45F331128AFadB1E589deaF1); // Kris Is (~1.05M)
-    governorBravo.castVote(_newProposalId, AGAINST);
-    vm.prank(0x5e349eca2dc61aBCd9dD99Ce94d04136151a09Ee); // Linda Xie (~1.02M)
-    governorBravo.castVote(_newProposalId, AGAINST);
+
+    // The vote should fail.
+    assertLt(
+      delegates[1].votes + delegates[5].votes, // FOR votes.
+      delegates[2].votes + delegates[3].votes + delegates[4].votes // AGAINST votes.
+    );
 
     _jumpToVotingComplete(_newProposalId);
 
@@ -1075,7 +1100,7 @@ contract NewGitcoinGovernorProposalTest is
 
     // Pass the proposal on Alpha.
     for (uint256 _index = 0; _index < delegates.length; _index++) {
-      vm.prank(delegates[_index]);
+      vm.prank(delegates[_index].addr);
       governorAlpha.castVote(_vars.alphaProposalId, true);
     }
 
@@ -1146,7 +1171,7 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     uint256 _totalAgainstVotes;
     uint256 _totalAbstainVotes;
     for (uint256 _i; _i < delegates.length; _i++) {
-      address _voter = delegates[_i];
+      address _voter = delegates[_i].addr;
       uint256 _weight = gtcToken.getPriorVotes(_voter, _votingSnapshot);
 
       uint128 _forVotes = uint128(_weight.mulWadDown(_forVotePercentage));
@@ -1261,8 +1286,8 @@ contract FlexVoting is GitcoinGovernorProposalTestHelper, GovernorBravoProposalH
     // Confirm nominal votes can co-exist with partial+fractional votes by
     // voting with the second largest delegate.
     uint256 _nominalVoterWeight =
-      gtcToken.getPriorVotes(delegates[1], governorBravo.proposalSnapshot(newProposalId));
-    vm.prank(delegates[1]);
+      gtcToken.getPriorVotes(delegates[1].addr, governorBravo.proposalSnapshot(newProposalId));
+    vm.prank(delegates[1].addr);
     governorBravo.castVote(newProposalId, FOR);
 
     ( // Ensure the nominal votes were recorded.
