@@ -116,8 +116,6 @@ contract GitcoinGovernorProposalTestHelper is GitcoinGovernorTestHelper {
       // blocks transfers to the zero address -- see line 546:
       // https://etherscan.io/address/0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F#code
       && _receiver > address(0)
-      // USDC reverts if you attempt to send ETH to it.
-      && _receiver != USDC_ADDRESS
     );
     assumeNoPrecompiles(_receiver);
   }
