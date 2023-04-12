@@ -668,13 +668,8 @@ abstract contract GovernorBravoProposalHelper is ProposalTestHelper {
   }
 }
 
-abstract contract BravoGovernorProposalTest is GovernorBravoProposalHelper
-{
-  function setUp()
-    public
-    virtual
-    override(ProposalTestHelper)
-  {
+abstract contract BravoGovernorProposalTest is GovernorBravoProposalHelper {
+  function setUp() public virtual override(ProposalTestHelper) {
     ProposalTestHelper.setUp();
   }
 
@@ -1146,11 +1141,7 @@ abstract contract FlexVotingTest is GovernorBravoProposalHelper {
     bytes params
   );
 
-  function setUp()
-    public
-    virtual
-    override(ProposalTestHelper)
-  {
+  function setUp() public virtual override(ProposalTestHelper) {
     ProposalTestHelper.setUp();
 
     _upgradeToBravoGovernor();
@@ -1356,34 +1347,62 @@ abstract contract FlexVotingTest is GovernorBravoProposalHelper {
 
 // Exercise the existing Bravo contract deployed on April 7th 2023.
 contract BravoGovernorDeployTestWithExistingBravo is BravoGovernorDeployTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return true;
+  }
 }
+
 contract AlphaGovernorPreProposalTestWithExistingBravo is AlphaGovernorPreProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return true;
+  }
 }
+
 contract AlphaGovernorPostProposalTestWithExistingBravo is AlphaGovernorPostProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return true;
+  }
 }
+
 contract BravoGovernorProposalTestWithExistingBravo is BravoGovernorProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return true;
+  }
 }
+
 contract FlexVotingTestWithExistingBravo is FlexVotingTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return true; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return true;
+  }
 }
 
 // Exercise a fresh Bravo deploy.
 contract BravoGovernorDeployTestWithBravoDeployedByScript is BravoGovernorDeployTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return false;
+  }
 }
+
 contract AlphaGovernorPreProposalTestWithBravoDeployedByScript is AlphaGovernorPreProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return false;
+  }
 }
+
 contract AlphaGovernorPostProposalTestWithBravoDeployedByScript is AlphaGovernorPostProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return false;
+  }
 }
+
 contract BravoGovernorProposalTestWithBravoDeployedByScript is BravoGovernorProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return false;
+  }
 }
+
 contract FlexVotingTestWithBravoDeployedByScript is FlexVotingTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) { return false; }
+  function _useDeployedGovernorBravo() internal override returns (bool) {
+    return false;
+  }
 }
