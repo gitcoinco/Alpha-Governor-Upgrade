@@ -16,6 +16,7 @@ abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
 
   uint256 constant QUORUM = 2_500_000e18;
   address constant GTC_TOKEN = 0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F;
+  IGTC gtcToken = IGTC(GTC_TOKEN);
   address constant TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
   address constant PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
   address constant DEPLOYED_BRAVO_GOVERNOR = 0x1a84384e1f1b12D53E60C8C528178dC87767b488;
@@ -23,7 +24,7 @@ abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
   struct Delegate {
     string handle;
     address addr;
-    uint256 votes;
+    uint96 votes;
   }
 
   Delegate[] delegates;
@@ -34,18 +35,25 @@ abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
     // The latest block when this test was written. If you update the fork block
     // make sure to also update the top 6 delegates below.
     uint256 _forkBlock = 17_032_826;
+    vm.createSelectFork(vm.rpcUrl("mainnet"), _forkBlock);
 
     // Taken from https://www.tally.xyz/gov/gitcoin/delegates?sort=voting_power_desc.
     // If you update these delegates (including updating order in the array),
     // make sure to update any tests that reference specific delegates.
-    delegates.push(Delegate("kevinolsen.eth", 0x4Be88f63f919324210ea3A2cCAD4ff0734425F91, 1.8e6));
-    delegates.push(Delegate("janineleger.eth", 0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479, 1.7e6));
-    delegates.push(Delegate("kbw.eth", PROPOSER, 1.2e6));
-    delegates.push(Delegate("griff.eth", 0x839395e20bbB182fa440d08F850E6c7A8f6F0780, 0.8e6));
-    delegates.push(Delegate("lefteris.eth", 0x2B888954421b424C5D3D9Ce9bB67c9bD47537d12, 0.6e6));
-    delegates.push(Delegate("anon gnosis safe", 0x93F80a67FdFDF9DaF1aee5276Db95c8761cc8561, 0.5e6));
+    Delegate[] memory _delegates = new Delegate[](6);
+    _delegates[0] = Delegate("kevinolsen.eth", 0x4Be88f63f919324210ea3A2cCAD4ff0734425F91, 1.8e6);
+    _delegates[1] = Delegate("janineleger.eth", 0x2df9a188fBE231B0DC36D14AcEb65dEFbB049479, 1.7e6);
+    _delegates[2] = Delegate("kbw.eth", PROPOSER, 1.2e6);
+    _delegates[3] = Delegate("griff.eth", 0x839395e20bbB182fa440d08F850E6c7A8f6F0780, 0.8e6);
+    _delegates[4] = Delegate("lefteris.eth", 0x2B888954421b424C5D3D9Ce9bB67c9bD47537d12, 0.6e6);
+    _delegates[5] = Delegate("anon gnosis safe", 0x93F80a67FdFDF9DaF1aee5276Db95c8761cc8561, 0.5e6);
 
-    vm.createSelectFork(vm.rpcUrl("mainnet"), _forkBlock);
+    // Fetch up-to-date voting weight for the top delegates.
+    for (uint256 i; i < _delegates.length; i++) {
+      Delegate memory _delegate = _delegates[i];
+      _delegate.votes = gtcToken.getCurrentVotes(_delegate.addr);
+      delegates.push(_delegate);
+    }
 
     if (_useDeployedGovernorBravo()) {
       // The GitcoinGovernor contract was deployed to mainnet on April 7th 2023
@@ -87,7 +95,6 @@ abstract contract ProposalTestHelper is GitcoinGovernorTestHelper {
   //----------------- State and Setup ----------- //
 
   IGovernorAlpha governorAlpha = IGovernorAlpha(0xDbD27635A534A3d3169Ef0498beB56Fb9c937489);
-  IGTC gtcToken = IGTC(GTC_TOKEN);
   address constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
   address constant RAD_ADDRESS = 0x31c8EAcBFFdD875c74b94b077895Bd78CF1E64A3;
   IERC20 usdcToken = IERC20(USDC_ADDRESS);
