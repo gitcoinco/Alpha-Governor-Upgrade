@@ -958,7 +958,10 @@ abstract contract BravoGovernorProposalTest is GovernorBravoProposalHelper {
     vm.prank(delegates[5].addr);
     governorBravo.castVote(_newProposalId, AGAINST);
 
-    // The vote should pass.
+    // The vote should pass. We are asserting against the raw delegate voting
+    // weight as a sanity check. In the event that the fork block is changed and
+    // voting weights are materially different than they were when the test was
+    // written, we want this assertion to fail.
     assertGt(
       delegates[0].votes + delegates[1].votes + delegates[2].votes, // FOR votes.
       delegates[3].votes + delegates[5].votes // AGAINST votes.
@@ -1024,7 +1027,10 @@ abstract contract BravoGovernorProposalTest is GovernorBravoProposalHelper {
     vm.prank(delegates[5].addr);
     governorBravo.castVote(_newProposalId, FOR);
 
-    // The vote should fail.
+    // The vote should fail. We are asserting against the raw delegate voting
+    // weight as a sanity check. In the event that the fork block is changed and
+    // voting weights are materially different than they were when the test was
+    // written, we want this assertion to fail.
     assertLt(
       delegates[1].votes + delegates[5].votes, // FOR votes.
       delegates[2].votes + delegates[3].votes + delegates[4].votes // AGAINST votes.
