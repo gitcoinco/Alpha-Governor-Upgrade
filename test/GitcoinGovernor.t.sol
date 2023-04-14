@@ -1360,62 +1360,62 @@ abstract contract FlexVotingTest is GovernorBravoProposalHelper {
 
 // Exercise the existing Bravo contract deployed on April 7th 2023.
 contract BravoGovernorDeployTestWithExistingBravo is BravoGovernorDeployTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return true;
   }
 }
 
 contract AlphaGovernorPreProposalTestWithExistingBravo is AlphaGovernorPreProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return true;
   }
 }
 
 contract AlphaGovernorPostProposalTestWithExistingBravo is AlphaGovernorPostProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return true;
   }
 }
 
 contract BravoGovernorProposalTestWithExistingBravo is BravoGovernorProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return true;
   }
 }
 
 contract FlexVotingTestWithExistingBravo is FlexVotingTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return true;
   }
 }
 
 // Exercise a fresh Bravo deploy.
 contract BravoGovernorDeployTestWithBravoDeployedByScript is BravoGovernorDeployTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return false;
   }
 }
 
 contract AlphaGovernorPreProposalTestWithBravoDeployedByScript is AlphaGovernorPreProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return false;
   }
 }
 
 contract AlphaGovernorPostProposalTestWithBravoDeployedByScript is AlphaGovernorPostProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return false;
   }
 }
 
 contract BravoGovernorProposalTestWithBravoDeployedByScript is BravoGovernorProposalTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return false;
   }
 }
 
 contract FlexVotingTestWithBravoDeployedByScript is FlexVotingTest {
-  function _useDeployedGovernorBravo() internal override returns (bool) {
+  function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return false;
   }
 }
