@@ -20,6 +20,7 @@ abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
   address constant TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
   address constant PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
   address constant DEPLOYED_BRAVO_GOVERNOR = 0x1a84384e1f1b12D53E60C8C528178dC87767b488;
+  uint256 constant MAX_REASONABLE_TIME_PERIOD = 302_400; // 6 weeks assuming a 12 second block time
 
   struct Delegate {
     string handle;
@@ -83,7 +84,9 @@ abstract contract BravoGovernorDeployTest is GitcoinGovernorTestHelper {
     assertEq(INITIAL_PROPOSAL_THRESHOLD, 1_000_000e18);
     // forgefmt: disable-end
     assertEq(governorBravo.votingDelay(), INITIAL_VOTING_DELAY);
+    assertLt(governorBravo.votingDelay(), MAX_REASONABLE_TIME_PERIOD);
     assertEq(governorBravo.votingPeriod(), INITIAL_VOTING_PERIOD);
+    assertLt(governorBravo.votingPeriod(), MAX_REASONABLE_TIME_PERIOD);
     assertEq(governorBravo.proposalThreshold(), INITIAL_PROPOSAL_THRESHOLD);
     assertEq(governorBravo.quorum(_blockNumber), QUORUM);
     assertEq(governorBravo.timelock(), TIMELOCK);
