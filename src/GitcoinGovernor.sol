@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 // forgefmt: disable-start
 import { Governor, GovernorCountingFractional } from "flexible-voting/src/GovernorCountingFractional.sol";
 import { ERC20VotesComp, GovernorVotesComp } from "@openzeppelin/contracts/governance/extensions/GovernorVotesComp.sol";
+import {IGovernor} from "@openzeppelin/contracts/governance/IGovernor.sol";
 import { GovernorTimelockCompound, ICompoundTimelock } from "@openzeppelin/contracts/governance/extensions/GovernorTimelockCompound.sol";
 import { GovernorSettings } from "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
 // forgefmt: disable-end
@@ -87,6 +88,21 @@ contract GitcoinGovernor is
   /// @dev Our implementation ignores the block number parameter and returns a constant.
   function quorum(uint256) public pure override returns (uint256) {
     return QUORUM;
+  }
+
+  /// @dev We override this function to resolve ambiguity between inherited contracts.
+  function castVoteWithReasonAndParamsBySig(
+    uint256 proposalId,
+    uint8 support,
+    string calldata reason,
+    bytes memory params,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+  ) public override(Governor, GovernorCountingFractional, IGovernor) returns (uint256) {
+    return GovernorCountingFractional.castVoteWithReasonAndParamsBySig(
+      proposalId, support, reason, params, v, r, s
+    );
   }
 
   /// @dev We override this function to resolve ambiguity between inherited contracts.
