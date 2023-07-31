@@ -19,7 +19,7 @@ abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
   IGTC gtcToken = IGTC(GTC_TOKEN);
   address constant TIMELOCK = 0x57a8865cfB1eCEf7253c27da6B4BC3dAEE5Be518;
   address constant PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
-  address constant DEPLOYED_BRAVO_GOVERNOR = 0x1a84384e1f1b12D53E60C8C528178dC87767b488;
+  address constant DEPLOYED_BRAVO_GOVERNOR = 0x9D4C63565D5618310271bF3F3c01b2954C1D1639;
   uint256 constant MAX_REASONABLE_TIME_PERIOD = 302_400; // 6 weeks assuming a 12 second block time
 
   struct Delegate {
@@ -35,7 +35,7 @@ abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
   function setUp() public virtual {
     // The latest block when this test was written. If you update the fork block
     // make sure to also update the top 6 delegates below.
-    uint256 _forkBlock = 17_032_826;
+    uint256 _forkBlock = 17_814_028;
     vm.createSelectFork(vm.rpcUrl("mainnet"), _forkBlock);
 
     // Taken from https://www.tally.xyz/gov/gitcoin/delegates?sort=voting_power_desc.
