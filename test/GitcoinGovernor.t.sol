@@ -57,7 +57,7 @@ abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
     }
 
     if (_useDeployedGovernorBravo()) {
-      // The GitcoinGovernor contract was deployed to mainnet on April 7th 2023
+      // The GitcoinGovernor contract was deployed to mainnet on July 31st, 2023
       // using DeployScript in this repo.
       governorBravo = GitcoinGovernor(payable(DEPLOYED_BRAVO_GOVERNOR));
     } else {
@@ -118,7 +118,7 @@ abstract contract ProposalTestHelper is GitcoinGovernorTestHelper {
     GitcoinGovernorTestHelper.setUp();
 
     if (_useDeployedGovernorBravo()) {
-      // The actual upgrade proposal submitted to Governor Alpha by kbw.eth on 8/9/2023
+      // The actual upgrade proposal submitted to Governor Alpha by kbw.eth on August 9th, 2023
       upgradeProposalId = 65;
       // Since the proposal was already submitted, the count before its submissions is one less
       initialProposalCount = governorAlpha.proposalCount() - 1;
@@ -1370,7 +1370,7 @@ abstract contract FlexVotingTest is GovernorBravoProposalHelper {
   }
 }
 
-// Exercise the existing Bravo contract deployed on April 7th 2023.
+// Exercise the existing Bravo contract deployed on July 31st, 2023.
 contract BravoGovernorDeployTestWithExistingBravo is BravoGovernorDeployTest {
   function _useDeployedGovernorBravo() internal pure override returns (bool) {
     return true;
