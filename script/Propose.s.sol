@@ -10,7 +10,7 @@ import {ICompoundTimelock} from
 contract ProposeScript is Script {
   IGovernorAlpha constant GOVERNOR_ALPHA =
     IGovernorAlpha(0xDbD27635A534A3d3169Ef0498beB56Fb9c937489);
-  address constant PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
+  address PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
 
   function propose(GitcoinGovernor _newGovernor) internal returns (uint256 _proposalId) {
     address[] memory _targets = new address[](2);
@@ -31,6 +31,13 @@ contract ProposeScript is Script {
     return GOVERNOR_ALPHA.propose(
       _targets, _values, _signatures, _calldatas, "Upgrade to Governor Bravo"
     );
+  }
+
+  /// @dev Used only in the context of testing in order to allow an alternate address to be the
+  /// proposer. This is needed when testing with live proposal data, because the Governor only
+  /// allows each proposer to have one live proposal at a time.
+  function overrideProposerForTests(address _testProposer) external {
+    PROPOSER = _testProposer;
   }
 
   /// @dev After the new Governor is deployed on mainnet, this can move from a parameter to a const

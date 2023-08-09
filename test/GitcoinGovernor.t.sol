@@ -35,7 +35,7 @@ abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
   function setUp() public virtual {
     // The latest block when this test was written. If you update the fork block
     // make sure to also update the top 6 delegates below.
-    uint256 _forkBlock = 17_814_028;
+    uint256 _forkBlock = 17_878_409;
     vm.createSelectFork(vm.rpcUrl("mainnet"), _forkBlock);
 
     // Taken from https://www.tally.xyz/gov/gitcoin/delegates?sort=voting_power_desc.
@@ -117,10 +117,19 @@ abstract contract ProposalTestHelper is GitcoinGovernorTestHelper {
   function setUp() public virtual override {
     GitcoinGovernorTestHelper.setUp();
 
-    initialProposalCount = governorAlpha.proposalCount();
-
-    ProposeScript _proposeScript = new ProposeScript();
-    upgradeProposalId = _proposeScript.run(governorBravo);
+    if (_useDeployedGovernorBravo()) {
+      // The actual upgrade proposal submitted to Governor Alpha by kbw.eth on 8/9/2023
+      upgradeProposalId = 65;
+      // Since the proposal was already submitted, the count before its submissions is one less
+      initialProposalCount = governorAlpha.proposalCount() - 1;
+    } else {
+      initialProposalCount = governorAlpha.proposalCount();
+      ProposeScript _proposeScript = new ProposeScript();
+      // We override the deployer to use kevinolsen.eth, because in this context, kbw.eth already
+      // has a live proposal
+      _proposeScript.overrideProposerForTests(0x4Be88f63f919324210ea3A2cCAD4ff0734425F91);
+      upgradeProposalId = _proposeScript.run(governorBravo);
+    }
   }
 
   //--------------- HELPERS ---------------//
@@ -327,7 +336,7 @@ abstract contract AlphaGovernorPostProposalTest is ProposalTestHelper {
     bool isGovernorAlphaAdmin
   ) internal {
     // Submit the new proposal
-    vm.prank(PROPOSER);
+    vm.prank(0x4Be88f63f919324210ea3A2cCAD4ff0734425F91);
     uint256 _newProposalId =
       governorAlpha.propose(_targets, _values, _signatures, _calldatas, "Proposal for old Governor");
 
