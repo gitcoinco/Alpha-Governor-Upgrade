@@ -10,7 +10,7 @@ import {ICompoundTimelock} from
 contract ProposeScript is Script {
   IGovernorAlpha constant GOVERNOR_ALPHA =
     IGovernorAlpha(0xDbD27635A534A3d3169Ef0498beB56Fb9c937489);
-  address constant PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
+  address PROPOSER = 0xc2E2B715d9e302947Ec7e312fd2384b5a1296099; // kbw.eth
 
   function propose(GitcoinGovernor _newGovernor) internal returns (uint256 _proposalId) {
     address[] memory _targets = new address[](2);
