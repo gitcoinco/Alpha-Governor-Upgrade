@@ -33,13 +33,6 @@ contract ProposeScript is Script {
     );
   }
 
-  /// @dev Used only in the context of testing in order to allow an alternate address to be the
-  /// proposer. This is needed when testing with live proposal data, because the Governor only
-  /// allows each proposer to have one live proposal at a time.
-  function overrideProposerForTests(address _testProposer) external {
-    PROPOSER = _testProposer;
-  }
-
   /// @dev After the new Governor is deployed on mainnet, this can move from a parameter to a const
   function run(GitcoinGovernor _newGovernor) public returns (uint256 _proposalId) {
     // The expectation is the key loaded here corresponds to the address of the `proposer` above.

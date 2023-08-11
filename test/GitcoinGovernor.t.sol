@@ -9,7 +9,7 @@ import {GitcoinGovernor, ICompoundTimelock} from "src/GitcoinGovernor.sol";
 import {DeployInput, DeployScript} from "script/Deploy.s.sol";
 import {IGovernorAlpha} from "src/interfaces/IGovernorAlpha.sol";
 import {IGTC} from "src/interfaces/IGTC.sol";
-import {ProposeScript} from "script/Propose.s.sol";
+import {TestableProposeScript} from "./TestableProposeScript.sol";
 
 abstract contract GitcoinGovernorTestHelper is Test, DeployInput {
   using FixedPointMathLib for uint256;
@@ -124,7 +124,7 @@ abstract contract ProposalTestHelper is GitcoinGovernorTestHelper {
       initialProposalCount = governorAlpha.proposalCount() - 1;
     } else {
       initialProposalCount = governorAlpha.proposalCount();
-      ProposeScript _proposeScript = new ProposeScript();
+      TestableProposeScript _proposeScript = new TestableProposeScript();
       // We override the deployer to use kevinolsen.eth, because in this context, kbw.eth already
       // has a live proposal
       _proposeScript.overrideProposerForTests(0x4Be88f63f919324210ea3A2cCAD4ff0734425F91);
