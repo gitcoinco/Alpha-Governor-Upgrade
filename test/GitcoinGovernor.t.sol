@@ -336,7 +336,7 @@ abstract contract AlphaGovernorPostProposalTest is ProposalTestHelper {
     bool isGovernorAlphaAdmin
   ) internal {
     // Submit the new proposal
-    vm.prank(0x4Be88f63f919324210ea3A2cCAD4ff0734425F91);
+    vm.prank(PROPOSER);
     uint256 _newProposalId =
       governorAlpha.propose(_targets, _values, _signatures, _calldatas, "Proposal for old Governor");
 
